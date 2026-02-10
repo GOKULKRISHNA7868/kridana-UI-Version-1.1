@@ -39,13 +39,6 @@ export default function InstituteDetailsPage() {
     load();
   }, [id]);
 
-  useEffect(() => {
-    const auth = getAuth();
-    if (!auth.currentUser) {
-      navigate("/login");
-    }
-  }, []);
-
   const handleRating = async (star) => {
     const user = auth.currentUser;
     if (!user || !inst) return;

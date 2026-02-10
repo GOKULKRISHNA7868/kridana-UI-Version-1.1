@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 
 const Racket = () => {
   const navigate = useNavigate();
+  const [selectedSubCategory, setSelectedSubCategory] = React.useState(null);
+  const [showChoice, setShowChoice] = React.useState(false);
 
   const categories = [
     {
@@ -59,11 +61,10 @@ const Racket = () => {
           {categories.map((item) => (
             <div
               key={item.name}
-              onClick={() =>
-                navigate(
-                  `/viewTrainers?category=${encodeURIComponent(item.name)}`
-                )
-              }
+              onClick={() => {
+                setSelectedSubCategory(item.name);
+                setShowChoice(true);
+              }}
               className="bg-white rounded-2xl border border-orange-200 overflow-hidden cursor-pointer
                          transition-all duration-300
                          hover:-translate-y-1
@@ -87,6 +88,55 @@ const Racket = () => {
           ))}
         </div>
       </section>
+      {/* ================= POPUP ================= */}
+      {showChoice && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-[90%] max-w-sm text-center">
+            <h3 className="text-xl font-bold mb-4">
+              View {selectedSubCategory} as
+            </h3>
+
+            <div className="flex gap-4 justify-center">
+              {/* Trainers */}
+              <button
+                onClick={() => {
+                  navigate(
+                    `/viewtrainers?category=Racket&subCategory=${encodeURIComponent(
+                      selectedSubCategory,
+                    )}`,
+                  );
+                  setShowChoice(false);
+                }}
+                className="bg-orange-500 text-white px-4 py-2 rounded-lg"
+              >
+                Trainers
+              </button>
+
+              {/* Institutes */}
+              <button
+                onClick={() => {
+                  navigate(
+                    `/viewinstitutes?category=Racket&subCategory=${encodeURIComponent(
+                      selectedSubCategory,
+                    )}`,
+                  );
+                  setShowChoice(false);
+                }}
+                className="bg-orange-500 text-white px-4 py-2 rounded-lg"
+              >
+                Institutes
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowChoice(false)}
+              className="mt-4 text-sm text-gray-500"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

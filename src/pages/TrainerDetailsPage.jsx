@@ -32,13 +32,6 @@ export default function TrainerDetailsPage() {
     loadTrainer();
   }, [id]);
 
-  useEffect(() => {
-    const auth = getAuth();
-    if (!auth.currentUser) {
-      navigate("/login");
-    }
-  }, []);
-
   const handleRating = async (star) => {
     const user = auth.currentUser;
     if (!user || !trainer) return;
@@ -218,39 +211,38 @@ export default function TrainerDetailsPage() {
         </Section>
 
         {/* ✅ FIXED CATEGORY DISPLAY */}
-       
+
         <Section title="Facilities">{trainer.facilities || "—"}</Section>
       </div>
       {/* 🧩 CATEGORIES */}
-{trainer.categories && Object.keys(trainer.categories).length > 0 && (
-  <div className="mt-14">
-    <h2 className="text-3xl font-bold text-[#ff7a00] mb-6">
-      Categories & Sub Categories
-    </h2>
+      {trainer.categories && Object.keys(trainer.categories).length > 0 && (
+        <div className="mt-14">
+          <h2 className="text-3xl font-bold text-[#ff7a00] mb-6">
+            Categories & Sub Categories
+          </h2>
 
-    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {Object.entries(trainer.categories).map(([cat, subs]) => (
-        <div
-          key={cat}
-          className="border rounded-2xl p-5 shadow-sm hover:shadow-md transition"
-        >
-          <h3 className="font-bold text-lg mb-2">{cat}</h3>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Object.entries(trainer.categories).map(([cat, subs]) => (
+              <div
+                key={cat}
+                className="border rounded-2xl p-5 shadow-sm hover:shadow-md transition"
+              >
+                <h3 className="font-bold text-lg mb-2">{cat}</h3>
 
-          {subs.length > 0 ? (
-            <ul className="list-disc ml-5 text-gray-700">
-              {subs.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400">No sub categories</p>
-          )}
+                {subs.length > 0 ? (
+                  <ul className="list-disc ml-5 text-gray-700">
+                    {subs.map((s, i) => (
+                      <li key={i}>{s}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-400">No sub categories</p>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
-    </div>
-  </div>
-)}
-
+      )}
 
       {/* ✅ MEDIA SECTION */}
       <div className="mt-14 space-y-10">

@@ -18,17 +18,15 @@ export default function ViewInstitutes() {
   const defaultCategory = searchParams.get("category") || "";
 
   const [category, setCategory] = useState(defaultCategory);
-  const [subCategory, setSubCategory] = useState("");
+  const defaultSubCategory = searchParams.get("subCategory") || "";
+  const [subCategory, setSubCategory] = useState(defaultSubCategory);
+
   const [city, setCity] = useState("");
   const [minRating, setMinRating] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser); // Save user
-      if (!currentUser) {
-        setLoading(false); // Stop loading if not logged in
-        return;
-      }
+      setUser(currentUser); // keep tracking user (optional use later)
 
       const snap = await getDocs(collection(db, "institutes"));
       setInstitutes(
@@ -36,8 +34,6 @@ export default function ViewInstitutes() {
           id: d.id,
           ...d.data(),
           profileImageUrl: d.data().profileImageUrl || "",
-
-          // ✅ Fetch Media Arrays
           images: d.data().images || [],
           videos: d.data().videos || [],
           reels: d.data().reels || [],
@@ -65,7 +61,6 @@ export default function ViewInstitutes() {
     });
   }, [institutes, category, subCategory, city, minRating]);
 
-
   if (loading)
     return (
       <div className="min-h-screen flex items-center justify-center text-xl">
@@ -73,7 +68,7 @@ export default function ViewInstitutes() {
       </div>
     );
 
-  if (!user)
+  if (false && !user)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-6">
         <p className="text-2xl font-semibold text-[#ff7a00] mb-4">
@@ -98,7 +93,8 @@ export default function ViewInstitutes() {
       {/* FILTERS */}
       <div className="grid grid-cols-1 md:grid-cols-[repeat(4,minmax(180px,1fr))] gap-3 mb-8">
         {/* Category */}
-        <select className="border h-[42px] px-3 rounded-md text-sm bg-white"
+        <select
+          className="border h-[42px] px-3 rounded-md text-sm bg-white"
           value={category}
           onChange={(e) => {
             setCategory(e.target.value);
@@ -121,7 +117,8 @@ export default function ViewInstitutes() {
         </select>
 
         {/* Subcategory */}
-        <select className="border h-[42px] px-3 rounded-md text-sm bg-white"
+        <select
+          className="border h-[42px] px-3 rounded-md text-sm bg-white"
           value={subCategory}
           onChange={(e) => setSubCategory(e.target.value)}
         >
@@ -129,20 +126,18 @@ export default function ViewInstitutes() {
           {category &&
             [
               ...new Set(
-                institutes.flatMap((i) =>
-                  i.categories?.[category] || []
-                )
+                institutes.flatMap((i) => i.categories?.[category] || []),
               ),
             ].map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
-
         </select>
 
         {/* City */}
-        <select className="border h-[42px] px-3 rounded-md text-sm bg-white"
+        <select
+          className="border h-[42px] px-3 rounded-md text-sm bg-white"
           value={city}
           onChange={(e) => setCity(e.target.value)}
         >
@@ -155,7 +150,8 @@ export default function ViewInstitutes() {
         </select>
 
         {/* Min Rating */}
-        <select className="border h-[42px] px-3 rounded-md text-sm bg-white"
+        <select
+          className="border h-[42px] px-3 rounded-md text-sm bg-white"
           value={minRating}
           onChange={(e) => setMinRating(e.target.value)}
         >
@@ -177,7 +173,6 @@ export default function ViewInstitutes() {
               key={inst.id}
               onClick={() => navigate(`/institutes/${inst.id}`)}
               className="bg-white rounded-[18px] shadow-lg border cursor-pointer hover:scale-[1.02] transition-transform"
-
             >
               {/* PROFILE IMAGE */}
               <div className="h-[160px] rounded-t-[18px] overflow-hidden">
@@ -209,7 +204,7 @@ export default function ViewInstitutes() {
                     : "N/A"}
                 </p>
                 <button
-                   className="mt-3 w-full bg-[#ff7a00] text-white py-2 rounded-lg text-sm"
+                  className="mt-3 w-full bg-[#ff7a00] text-white py-2 rounded-lg text-sm"
                   onClick={() => navigate(`/institutes/${inst.id}`)}
                 >
                   View Details

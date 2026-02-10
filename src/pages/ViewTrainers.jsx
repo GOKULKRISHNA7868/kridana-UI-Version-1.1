@@ -13,8 +13,8 @@ const getDistanceKm = (lat1, lon1, lat2, lon2) => {
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLon / 2) ** 2;
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
@@ -35,33 +35,27 @@ export default function ViewTrainers() {
   const searchParams = new URLSearchParams(location.search);
   const defaultCategory = searchParams.get("category") || "";
   const [category, setCategory] = useState(defaultCategory);
-  const [subCategory, setSubCategory] = useState("");
+  const defaultSubCategory = searchParams.get("subCategory") || "";
+  const [subCategory, setSubCategory] = useState(defaultSubCategory);
+
   const [city, setCity] = useState("");
   const [minRating, setMinRating] = useState("");
 
   /* 🔐 Fetch trainers */
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        setLoading(false);
-        console.log("ViewTrainers rendered");
-        return;
-      }
+  onAuthStateChanged(auth, async (user) => {
+    // 🔥 ALLOW PUBLIC VIEW
+    const snap = await getDocs(collection(db, "trainers"));
 
-      const snap = await getDocs(collection(db, "trainers"));
-      setTrainers(
-        snap.docs.map((d) => ({
-          id: d.id,
-          ...d.data(),
-          // Ensure profileImageUrl exists
-          profileImageUrl: d.data().profileImageUrl || "",
-        })),
-      );
-      setLoading(false);
-    });
+    setTrainers(
+      snap.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        profileImageUrl: d.data().profileImageUrl || "",
+      })),
+    );
 
-    return () => unsub();
-  }, []);
+    setLoading(false);
+  });
 
   /* 📍 Get Current Location */
   const getCurrentLocation = () => {
@@ -83,14 +77,27 @@ export default function ViewTrainers() {
   const filteredTrainers = useMemo(() => {
     return trainers
       .filter((t) => {
-        if (category && !t.categories?.[category]) return false;
-        if (subCategory && !t.categories?.[category]?.includes(subCategory))
-          return false;
+        if (!t.categories) return false;
 
+        // Match main category OR subcategory
+        const matchesCategory = category
+          ? Object.keys(t.categories).includes(category) ||
+            Object.values(t.categories).some((subs) => subs.includes(category))
+          : true;
+
+        const matchesSubCategory = subCategory
+          ? Object.values(t.categories).some((subs) =>
+              subs.includes(subCategory),
+            )
+          : true;
+
+        if (!matchesCategory || !matchesSubCategory) return false;
         if (city && t.city !== city) return false;
         if (minRating && (t.rating || 0) < Number(minRating)) return false;
+
         return true;
       })
+
       .map((t) => {
         const lat = userLat ?? Number(manualLat);
         const lng = userLng ?? Number(manualLng);
@@ -145,15 +152,14 @@ export default function ViewTrainers() {
           {[
             ...new Set(
               trainers.flatMap((t) =>
-                t.categories ? Object.keys(t.categories) : []
-              )
+                t.categories ? Object.keys(t.categories) : [],
+              ),
             ),
           ].map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
           ))}
-
         </select>
 
         {/* Subcategory */}
@@ -166,16 +172,13 @@ export default function ViewTrainers() {
           {category &&
             [
               ...new Set(
-                trainers.flatMap((t) =>
-                  t.categories?.[category] || []
-                )
+                trainers.flatMap((t) => t.categories?.[category] || []),
               ),
             ].map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
-
         </select>
 
         {/* City */}
