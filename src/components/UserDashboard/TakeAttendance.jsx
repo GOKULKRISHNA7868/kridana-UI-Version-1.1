@@ -1,3 +1,4 @@
+// FULL UPDATED TRAINER ATTENDANCE WITH WEEKLY / MONTHLY / YEARLY SUPPORT
 import React, { useEffect, useState } from "react";
 import { auth, db } from "../../firebase";
 import {
@@ -20,10 +21,26 @@ export default function TrainerAttendance() {
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState({});
+  const [viewMode, setViewMode] = useState("weekly");
+
   const today = new Date().toISOString().split("T")[0];
   const isFutureDate = date > today;
 
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
 
   const handleDateChange = (e) => {
     setDate(e.target.value);
@@ -78,7 +95,6 @@ export default function TrainerAttendance() {
     setSelectedSlot(slot);
     setLoading(true);
 
-    // 🔹 LOAD ONLY STUDENTS MAPPED TO THIS SLOT
     const stuSnap = await getDocs(
       query(
         collection(db, "students"),
@@ -88,7 +104,6 @@ export default function TrainerAttendance() {
 
     const list = stuSnap.docs
       .map((d) => ({ id: d.id, ...d.data() }))
-      // ✅ ADDITION: filter students mapped to class
       .filter((s) => slot.students?.includes(s.id));
 
     setStudents(list);
@@ -109,7 +124,7 @@ export default function TrainerAttendance() {
       summaryMap[data.studentId].push(data.status);
     });
 
-    /* ===== LOAD TODAY ATTENDANCE ===== */
+    /* ===== LOAD SELECTED DATE ATTENDANCE ===== */
     const todaySnap = await getDocs(
       query(
         collection(db, "institutes", instituteId, "attendance"),
@@ -140,7 +155,8 @@ export default function TrainerAttendance() {
         category: selectedSlot.category,
         day: selectedSlot.day,
         time: selectedSlot.time,
-        batchNumber: s.batchNumber || "", // ✅ ADDITION
+        batchNumber: s.batchNumber || "",
+        viewMode: selectedSlot.viewMode || "weekly",
         date,
         status: attendance[s.id] || "Absent",
         createdAt: serverTimestamp(),
@@ -150,13 +166,39 @@ export default function TrainerAttendance() {
     setLoading(false);
   };
 
-  const selectedDay = days[new Date(date).getDay()];
+  const jsDate = new Date(date);
+  const selectedDay = days[jsDate.getDay()];
+  const selectedDate = jsDate.getDate();
+  const selectedMonth = months[jsDate.getMonth()];
+
+  const filteredSchedule = schedule.filter((s) => {
+    if (viewMode === "weekly")
+      return s.viewMode === "weekly" && s.day === selectedDay;
+    if (viewMode === "monthly")
+      return s.viewMode === "monthly" && Number(s.day) === selectedDate;
+    if (viewMode === "yearly")
+      return s.viewMode === "yearly" && s.day === selectedMonth;
+    return false;
+  });
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6">
       <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
         Trainer Attendance
       </h2>
+
+      {/* VIEW MODE */}
+      <div className="flex gap-2 mb-4">
+        {["weekly", "monthly", "yearly"].map((m) => (
+          <button
+            key={m}
+            onClick={() => setViewMode(m)}
+            className={`px-4 py-1 rounded ${viewMode === m ? "bg-blue-600 text-white" : "bg-gray-300"}`}
+          >
+            {m.toUpperCase()}
+          </button>
+        ))}
+      </div>
 
       {/* DATE */}
       <div className="mb-5">
@@ -180,31 +222,29 @@ export default function TrainerAttendance() {
       )}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-        {schedule.filter((s) => s.day === selectedDay).length === 0 &&
-          !loading && (
-            <p className="text-gray-700 dark:text-gray-300 col-span-3">
-              No classes on selected date
-            </p>
-          )}
-        {schedule
-          .filter((s) => s.day === selectedDay)
-          .map((slot) => (
-            <div
-              key={slot.id}
-              onClick={() => loadStudents(slot)}
-              className="cursor-pointer rounded-lg border p-4 bg-white dark:bg-gray-800 hover:ring-2 hover:ring-blue-500"
-            >
-              <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
-                {slot.category}
-              </h3>
-              <p className="text-sm text-gray-500">{slot.time}</p>
-              {slot.batchNumber && (
-                <p className="text-xs text-purple-600">
-                  Batch: {slot.batchNumber}
-                </p>
-              )}
-            </div>
-          ))}
+        {filteredSchedule.length === 0 && !loading && (
+          <p className="text-gray-700 dark:text-gray-300 col-span-3">
+            No classes on selected date
+          </p>
+        )}
+
+        {filteredSchedule.map((slot) => (
+          <div
+            key={slot.id}
+            onClick={() => loadStudents(slot)}
+            className="cursor-pointer rounded-lg border p-4 bg-white dark:bg-gray-800 hover:ring-2 hover:ring-blue-500"
+          >
+            <h3 className="font-semibold text-lg text-gray-900 dark:text-white">
+              {slot.category}
+            </h3>
+            <p className="text-sm text-gray-500">{slot.time}</p>
+            {slot.batchNumber && (
+              <p className="text-xs text-purple-600">
+                Batch: {slot.batchNumber}
+              </p>
+            )}
+          </div>
+        ))}
       </div>
 
       {/* ATTENDANCE TABLE */}
@@ -272,10 +312,7 @@ export default function TrainerAttendance() {
                           checked={attendance[s.id] === "Present"}
                           onClick={() => {
                             if (isFutureDate) return alert("❌ Future date");
-                            setAttendance({
-                              ...attendance,
-                              [s.id]: "Present",
-                            });
+                            setAttendance({ ...attendance, [s.id]: "Present" });
                           }}
                         />
                       </td>
@@ -286,10 +323,7 @@ export default function TrainerAttendance() {
                           checked={attendance[s.id] === "Absent"}
                           onClick={() => {
                             if (isFutureDate) return alert("❌ Future date");
-                            setAttendance({
-                              ...attendance,
-                              [s.id]: "Absent",
-                            });
+                            setAttendance({ ...attendance, [s.id]: "Absent" });
                           }}
                         />
                       </td>

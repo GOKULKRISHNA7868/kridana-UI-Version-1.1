@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import TermsAndConditions from "../../pages/Terms";
 import PrivacyPolicy from "../../pages/Privacy";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
-
+import PerformanceReports from "./PerformanceReports";
 import InstituteDataPage from "./InstituteDataPage";
 import StudentsAttendancePage from "./StudentsAttendancePage";
 import TrainersAttendancePage from "./TrainersAttendancePage";
@@ -36,6 +36,7 @@ const sidebarItems = [
   "Salary Details",
   "Add Trainer Details",
   "Add Student Details",
+  "Performance Reports",
   "Orders",
   "Sell Sports Material",
   "Upload Product Details",
@@ -92,16 +93,16 @@ const InstituteDashboard = () => {
     );
 
     const unsubStudents = onSnapshot(studentsQuery, (snap) => {
-const data = snap.docs.map((doc) => ({
-  uid: doc.id,
-  firstName: doc.data().firstName || "",
-  lastName: doc.data().lastName || "",
-  phone: doc.data().phone || "",
-  batch: doc.data().batch || doc.data().category || "",
-  createdAt: doc.data().createdAt
-    ? doc.data().createdAt.toDate().toISOString().split("T")[0]
-    : null,
-}));
+      const data = snap.docs.map((doc) => ({
+        uid: doc.id,
+        firstName: doc.data().firstName || "",
+        lastName: doc.data().lastName || "",
+        phone: doc.data().phone || "",
+        batch: doc.data().batch || doc.data().category || "",
+        createdAt: doc.data().createdAt
+          ? doc.data().createdAt.toDate().toISOString().split("T")[0]
+          : null,
+      }));
 
       setStudents(data);
     });
@@ -112,16 +113,16 @@ const data = snap.docs.map((doc) => ({
     );
 
     const unsubTrainers = onSnapshot(trainersQuery, (snap) => {
-     const data = snap.docs.map((doc) => ({
-  trainerUid: doc.id,
-  firstName: doc.data().firstName || "",
-  lastName: doc.data().lastName || "",
-  category: doc.data().category || "",
-  phone: doc.data().phone || "",
-  createdAt: doc.data().createdAt
-    ? doc.data().createdAt.toDate().toISOString().split("T")[0]
-    : null,
-}));
+      const data = snap.docs.map((doc) => ({
+        trainerUid: doc.id,
+        firstName: doc.data().firstName || "",
+        lastName: doc.data().lastName || "",
+        category: doc.data().category || "",
+        phone: doc.data().phone || "",
+        createdAt: doc.data().createdAt
+          ? doc.data().createdAt.toDate().toISOString().split("T")[0]
+          : null,
+      }));
 
       setTrainers(data);
     });
@@ -189,6 +190,8 @@ const data = snap.docs.map((doc) => ({
         return <TermsAndConditions />;
       case "Privacy Policy":
         return <PrivacyPolicy />;
+      case "Performance Reports":
+        return <PerformanceReports />;
 
       default:
         return (

@@ -15,14 +15,24 @@ import { onAuthStateChanged } from "firebase/auth";
 
 export default function ClassTime() {
   const navigate = useNavigate();
-const [viewMode, setViewMode] = useState("weekly");
+
+  const [viewMode, setViewMode] = useState("weekly");
+
   const weeklyDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
   const monthlyDays = Array.from({ length: 31 }, (_, i) => i + 1);
-
   const yearlyMonths = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
   ];
 
   const columns =
@@ -52,7 +62,7 @@ const [viewMode, setViewMode] = useState("weekly");
   const [editId, setEditId] = useState(null);
 
   const [form, setForm] = useState({
-    day: "Mon",
+    day: "",
     time: "09:00",
     category: "",
     batchNumber: "",
@@ -104,7 +114,8 @@ const [viewMode, setViewMode] = useState("weekly");
       !form.category ||
       !form.trainerId ||
       !form.batchNumber ||
-      form.students.length === 0
+      form.students.length === 0 ||
+      !form.day
     ) {
       alert("Please fill all fields");
       return;
@@ -112,6 +123,7 @@ const [viewMode, setViewMode] = useState("weekly");
 
     const batchConflict = schedule.find(
       (s) =>
+        s.viewMode === viewMode &&
         s.day === form.day &&
         s.time === form.time &&
         s.batchNumber === form.batchNumber &&
@@ -127,6 +139,7 @@ const [viewMode, setViewMode] = useState("weekly");
 
     const trainerConflict = schedule.find(
       (s) =>
+        s.viewMode === viewMode &&
         s.day === form.day &&
         s.time === form.time &&
         s.trainerId === form.trainerId &&
@@ -134,17 +147,15 @@ const [viewMode, setViewMode] = useState("weekly");
     );
 
     if (trainerConflict) {
-      alert(
-        `Trainer is already assigned to another batch on ${form.day} at ${form.time}`,
-      );
+      alert(`Trainer is already assigned on ${form.day} at ${form.time}`);
       return;
     }
 
     const trainer = trainers.find((t) => t.id === form.trainerId);
 
     const payload = {
-      day: form.day,
-      date: serverTimestamp(),
+      viewMode: viewMode, // weekly | monthly | yearly
+      day: form.day, // Mon / 1 / Jan
       time: form.time,
       category: form.category,
       batchNumber: form.batchNumber,
@@ -169,7 +180,7 @@ const [viewMode, setViewMode] = useState("weekly");
     setShowModal(false);
     setEditId(null);
     setForm({
-      day: "Mon",
+      day: "",
       time: "09:00",
       category: "",
       batchNumber: "",
@@ -186,20 +197,22 @@ const [viewMode, setViewMode] = useState("weekly");
   /* ---------------- UI ---------------- */
   return (
     <div className="bg-white dark:bg-gray-900 p-6 rounded-lg min-h-screen text-black dark:text-white">
-      <h2 className="text-2xl font-bold mb-2 text-orange-600">Weekly Timetable</h2>
+      <h2 className="text-2xl font-bold mb-2 text-orange-600">
+        {viewMode === "weekly" && "Weekly Timetable"}
+        {viewMode === "monthly" && "Monthly Timetable"}
+        {viewMode === "yearly" && "Yearly Timetable"}
+      </h2>
 
-      {/* ✅ DATE DISPLAY (ADDED) */}
       <div className="flex gap-2 mb-4">
         {["weekly", "monthly", "yearly"].map((mode) => (
           <button
             key={mode}
             onClick={() => setViewMode(mode)}
-            className={`px-4 py-1 rounded ${viewMode === mode
-                ? "bg-orange-500 text-white"
-                : "bg-gray-200"
-              }`}
+            className={`px-4 py-1 rounded ${
+              viewMode === mode ? "bg-orange-500 text-white" : "bg-gray-200"
+            }`}
           >
-            {mode}
+            {mode.toUpperCase()}
           </button>
         ))}
       </div>
@@ -209,6 +222,7 @@ const [viewMode, setViewMode] = useState("weekly");
         style={{ gridTemplateColumns: `100px repeat(${columns.length},1fr)` }}
       >
         <div></div>
+
         {columns.map((d) => (
           <div
             key={d}
@@ -224,30 +238,11 @@ const [viewMode, setViewMode] = useState("weekly");
               {time}
             </div>
 
-            {columns.map((day, index) => {
-              const slots = schedule.filter((s) => {
-                if (!s.date) return false;
-
-                if (!s.date?.seconds) return false;
-
-const d = new Date(s.date.seconds * 1000);
-
-
-                if (viewMode === "weekly") {
-                  return weeklyDays[d.getDay() - 1] === day && s.time === time;
-                }
-
-                if (viewMode === "monthly") {
-                  return d.getDate() === day && s.time === time;
-                }
-
-                if (viewMode === "yearly") {
-                  return yearlyMonths[d.getMonth()] === day && s.time === time;
-                }
-
-                return false;
-              });
-
+            {columns.map((day) => {
+              const slots = schedule.filter(
+                (s) =>
+                  s.viewMode === viewMode && s.day === day && s.time === time,
+              );
 
               return (
                 <div
@@ -266,7 +261,6 @@ const d = new Date(s.date.seconds * 1000);
                     setShowModal(true);
                   }}
                 >
-                  {/* ✅ SHOW MULTIPLE BATCHES */}
                   {slots.map((s) => (
                     <div
                       key={s.id}
@@ -298,7 +292,7 @@ const d = new Date(s.date.seconds * 1000);
         ))}
       </div>
 
-      {/* MODAL (UNCHANGED) */}
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
           <div className="bg-white dark:bg-gray-800 p-6 rounded w-[360px] space-y-3">

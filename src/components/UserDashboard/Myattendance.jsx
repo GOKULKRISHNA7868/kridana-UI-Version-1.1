@@ -62,21 +62,43 @@ export default function AttendancePage() {
       let allRecords = [];
 
       if (role === "student") {
-        // student attendance
-        const attSnap = await getDocs(
-          query(
-            collection(db, "institutes", instituteId, "attendance"),
-            where("studentId", "==", userId)
-          )
+        // 🔹 Load student's timetable mapping
+        const ttSnap = await getDocs(
+          query(collection(db, "institutes", instituteId, "timetable")),
         );
-        attSnap.forEach((doc) => allRecords.push(doc.data()));
+
+        // classes where student is mapped
+        const mappedCategories = [];
+        ttSnap.forEach((d) => {
+          const slot = d.data();
+          if (slot.students?.includes(userId)) {
+            mappedCategories.push(slot.category);
+          }
+        });
+
+        // 🔹 Load attendance only for mapped timetable categories
+        if (mappedCategories.length > 0) {
+          const attSnap = await getDocs(
+            query(
+              collection(db, "institutes", instituteId, "attendance"),
+              where("studentId", "==", userId),
+            ),
+          );
+
+          attSnap.forEach((doc) => {
+            const data = doc.data();
+            if (mappedCategories.includes(data.category)) {
+              allRecords.push(data);
+            }
+          });
+        }
       } else if (role === "trainer") {
         // trainer attendance
         const attSnap = await getDocs(
           query(
             collection(db, "institutes", instituteId, "trainerAttendance"),
-            where("trainerId", "==", userId)
-          )
+            where("trainerId", "==", userId),
+          ),
         );
         attSnap.forEach((doc) => allRecords.push(doc.data()));
       }
@@ -117,7 +139,7 @@ export default function AttendancePage() {
         Object.entries(attendanceData).map(([category, records]) => {
           const total = records.length;
           const present = records.filter(
-            (r) => r.status === "present" || r.status === "Present"
+            (r) => r.status === "present" || r.status === "Present",
           ).length;
           const absent = total - present;
           const percent = total === 0 ? 0 : Math.round((present / total) * 100);
@@ -188,7 +210,7 @@ export default function AttendancePage() {
                     </h4>
                     {records
                       .filter(
-                        (r) => r.status === "present" || r.status === "Present"
+                        (r) => r.status === "present" || r.status === "Present",
                       )
                       .map((r, i) => (
                         <p
@@ -206,7 +228,7 @@ export default function AttendancePage() {
                     </h4>
                     {records
                       .filter(
-                        (r) => r.status === "absent" || r.status === "Absent"
+                        (r) => r.status === "absent" || r.status === "Absent",
                       )
                       .map((r, i) => (
                         <p

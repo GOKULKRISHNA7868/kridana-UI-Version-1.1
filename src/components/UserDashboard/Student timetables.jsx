@@ -1,9 +1,33 @@
 import React, { useEffect, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { auth, db } from "../../firebase";
+import { onAuthStateChanged } from "firebase/auth";
 import dayjs from "dayjs";
 
-const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const weeklyDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const monthlyDays = Array.from({ length: 31 }, (_, i) => i + 1);
+const yearlyMonths = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
 const times = [
   "09:00",
   "10:00",
@@ -18,68 +42,135 @@ const times = [
 
 export default function StudentTimetable() {
   const [user, setUser] = useState(null);
+  const [studentProfile, setStudentProfile] = useState(null);
   const [classes, setClasses] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
+  const [viewMode, setViewMode] = useState("weekly"); // weekly | monthly | yearly
 
-  const instituteId = "sTTI0zsvJOeKZF2iPn8GSEjDcqo2";
-  const today = dayjs().format("ddd");
-  const todayDate = dayjs().format("YYYY-MM-DD");
+  const today = dayjs();
 
   /* ---------------- AUTH ---------------- */
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => setUser(u));
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      setUser(u);
+
+      console.log("[Student] Logged in UID:", u.uid);
+
+      // 🔹 Load student profile to get instituteId
+      const sRef = doc(db, "students", u.uid);
+      const sSnap = await getDoc(sRef);
+      if (sSnap.exists()) {
+        const data = sSnap.data();
+        console.log("[Student] Profile:", data);
+        setStudentProfile(data);
+      }
+    });
+
     return () => unsub();
   }, []);
 
   /* ---------------- FETCH TIMETABLE ---------------- */
   useEffect(() => {
-    if (!user) return;
+    if (!studentProfile?.instituteId || !user) return;
 
     const fetchTimetable = async () => {
-      const q = query(
-        collection(db, "institutes", instituteId, "timetable"),
-        where("students", "array-contains", user.uid)
+      console.log(
+        "[StudentTimetable] Fetch timetable for institute:",
+        studentProfile.instituteId,
       );
+
+      const q = query(
+        collection(db, "institutes", studentProfile.instituteId, "timetable"),
+        where("students", "array-contains", user.uid),
+      );
+
       const snap = await getDocs(q);
-      setClasses(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      console.log("[StudentTimetable] Timetable data:", data);
+      setClasses(data);
     };
 
     fetchTimetable();
-  }, [user]);
+  }, [studentProfile, user]);
 
   /* ---------------- FETCH ATTENDANCE ---------------- */
   useEffect(() => {
-    if (!user) return;
+    if (!studentProfile?.instituteId || !user) return;
 
     const fetchAttendance = async () => {
-      const q = query(
-        collection(db, "institutes", instituteId, "attendance"),
-        where("studentId", "==", user.uid)
+      console.log(
+        "[StudentTimetable] Fetch attendance for institute:",
+        studentProfile.instituteId,
       );
+
+      const q = query(
+        collection(db, "institutes", studentProfile.instituteId, "attendance"),
+        where("studentId", "==", user.uid),
+      );
+
       const snap = await getDocs(q);
-      setAttendance(snap.docs.map((d) => d.data()));
+      const data = snap.docs.map((d) => d.data());
+
+      console.log("[StudentTimetable] Attendance data:", data);
+      setAttendance(data);
     };
 
     fetchAttendance();
-  }, [user]);
+  }, [studentProfile, user]);
+
+  /* ---------------- FILTERS ---------------- */
+  const filteredClasses = classes.filter((c) => c.viewMode === viewMode);
+
+  const filteredAttendance = attendance.filter((a) => {
+    if (!a.date) return false;
+    const d = dayjs(a.date);
+
+    if (viewMode === "weekly") return d.isSame(today, "week");
+    if (viewMode === "monthly") return d.isSame(today, "month");
+    if (viewMode === "yearly") return d.isSame(today, "year");
+    return true;
+  });
 
   /* ---------------- HELPERS ---------------- */
   const getAttendance = (day, time) => {
-    return attendance.find((a) => a.day === day && a.time === time);
+    return filteredAttendance.find((a) => a.day === day && a.time === time);
   };
 
   const attendancePercent = () => {
-    if (attendance.length === 0) return 0;
-    const present = attendance.filter((a) => a.status === "Present").length;
-    return Math.round((present / attendance.length) * 100);
+    if (filteredAttendance.length === 0) return 0;
+    const present = filteredAttendance.filter(
+      (a) => a.status === "Present",
+    ).length;
+    return Math.round((present / filteredAttendance.length) * 100);
   };
+
+  const columns =
+    viewMode === "weekly"
+      ? weeklyDays
+      : viewMode === "monthly"
+        ? monthlyDays
+        : yearlyMonths;
 
   /* ---------------- UI ---------------- */
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
-      {/* HEADER */}
-      <h1 className="text-2xl font-bold mb-4">📅 My Class Timetable</h1>
+      <h1 className="text-2xl font-bold mb-4">📅 My Timetable</h1>
+
+      {/* MODE SELECTOR */}
+      <div className="mb-4 flex gap-3">
+        {["weekly", "monthly", "yearly"].map((m) => (
+          <button
+            key={m}
+            onClick={() => setViewMode(m)}
+            className={`px-4 py-2 rounded ${viewMode === m ? "bg-blue-600" : "bg-gray-700"}`}
+          >
+            {m.toUpperCase()}
+          </button>
+        ))}
+      </div>
 
       {/* ATTENDANCE SUMMARY */}
       <div className="mb-6 p-4 bg-gray-800 rounded-xl">
@@ -91,46 +182,48 @@ export default function StudentTimetable() {
 
       {/* TIMETABLE GRID */}
       <div className="overflow-x-auto">
-        <div className="grid grid-cols-8 gap-1">
-          {/* HEADER */}
-          <div />
-          {days.map((d) => (
-            <div
-              key={d}
-              className={`text-center font-bold p-2 rounded 
-                ${d === today ? "bg-blue-600" : "bg-gray-700"}`}
-            >
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `100px repeat(${columns.length},1fr)` }}
+        >
+          <div></div>
+
+          {columns.map((d) => (
+            <div key={d} className="text-center font-semibold bg-gray-700 py-2">
               {d}
             </div>
           ))}
 
-          {/* TIME ROWS */}
           {times.map((time) => (
             <React.Fragment key={time}>
-              <div className="bg-gray-700 p-2 text-center font-semibold">
+              <div className="bg-gray-700 p-2 font-semibold text-center">
                 {time}
               </div>
 
-              {days.map((day) => {
-                const cls = classes.find(
-                  (c) => c.day === day && c.time === time
+              {columns.map((day) => {
+                const cls = filteredClasses.find(
+                  (c) => c.day === day && c.time === time,
                 );
-                const att = getAttendance(day, time);
-                const isToday = day === today;
 
-                if (!cls) return <div key={day} />;
+                const att = getAttendance(day, time);
+
+                if (!cls) return <div key={day + time} />;
+
+                console.log("[Grid] Render:", {
+                  viewMode,
+                  day,
+                  time,
+                  cls,
+                  att,
+                });
 
                 return (
                   <div
-                    key={day}
+                    key={day + time}
                     onClick={() => setSelectedClass({ cls, att })}
-                    className={`
-                      cursor-pointer p-2 rounded text-sm text-center
-                      ${isToday ? "animate-pulse border-2 border-blue-400" : ""}
-                      ${
-                        att?.status === "Absent" ? "bg-red-700" : "bg-green-700"
-                      }
-                    `}
+                    className={`cursor-pointer p-2 rounded text-sm text-center ${
+                      att?.status === "Absent" ? "bg-red-700" : "bg-green-700"
+                    }`}
                   >
                     <p className="font-semibold">{cls.category}</p>
                     <p className="text-xs">{cls.trainerName}</p>
@@ -157,11 +250,7 @@ export default function StudentTimetable() {
             <p>Time: {selectedClass.cls.time}</p>
 
             <p
-              className={`mt-3 font-bold ${
-                selectedClass.att?.status === "Absent"
-                  ? "text-red-400"
-                  : "text-green-400"
-              }`}
+              className={`mt-3 font-bold ${selectedClass.att?.status === "Absent" ? "text-red-400" : "text-green-400"}`}
             >
               Attendance: {selectedClass.att?.status || "Not Marked"}
             </p>
@@ -176,18 +265,14 @@ export default function StudentTimetable() {
         </div>
       )}
 
-      {/* MONTHLY ATTENDANCE */}
+      {/* ATTENDANCE CALENDAR */}
       <div className="mt-8">
-        <h2 className="text-xl font-bold mb-3">
-          📆 Monthly Attendance Calendar
-        </h2>
-
+        <h2 className="text-xl font-bold mb-3">📆 Attendance Calendar</h2>
         <div className="grid grid-cols-7 gap-2">
-          {attendance.map((a, i) => (
+          {filteredAttendance.map((a, i) => (
             <div
               key={i}
-              className={`p-2 rounded text-center text-xs
-                ${a.status === "Absent" ? "bg-red-700" : "bg-green-700"}`}
+              className={`p-2 rounded text-center text-xs ${a.status === "Absent" ? "bg-red-700" : "bg-green-700"}`}
             >
               {a.date}
               <br />
@@ -200,13 +285,14 @@ export default function StudentTimetable() {
       {/* PARENT REPORT */}
       <div className="mt-10 p-4 bg-gray-800 rounded-xl">
         <h2 className="text-xl font-bold mb-2">👨‍👩‍👧 Parent Attendance Report</h2>
-
-        <p>Total Classes: {attendance.length}</p>
+        <p>Total Classes: {filteredAttendance.length}</p>
         <p className="text-green-400">
-          Present: {attendance.filter((a) => a.status === "Present").length}
+          Present:{" "}
+          {filteredAttendance.filter((a) => a.status === "Present").length}
         </p>
         <p className="text-red-400">
-          Absent: {attendance.filter((a) => a.status === "Absent").length}
+          Absent:{" "}
+          {filteredAttendance.filter((a) => a.status === "Absent").length}
         </p>
       </div>
     </div>

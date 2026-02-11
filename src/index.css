@@ -3,7 +3,9 @@
 @tailwind utilities;
 /* smooth dark/light mode transition */
 html {
-  transition: background-color 0.4s ease, color 0.4s ease;
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease;
 }
 /* 3D SPIN WHEEL EFFECT */
 @keyframes spin3D {
@@ -41,11 +43,10 @@ html {
 }
 /* Hide scrollbar but allow scroll */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE & Edge */
-  scrollbar-width: none;     /* Firefox */
+  -ms-overflow-style: none; /* IE & Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;             /* Chrome, Safari */
+  display: none; /* Chrome, Safari */
 }
-
