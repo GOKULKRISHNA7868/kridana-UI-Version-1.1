@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
+
 import {
   collection,
   query,
@@ -7,299 +8,443 @@ import {
   doc,
   setDoc,
   serverTimestamp,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
 import { Pagination } from "./shared";
+import { Search, Download, ChevronDown } from "lucide-react";
 
 const today = new Date().toISOString().split("T")[0];
 
-const normalizeDate = (date) => {
-  if (!date) return null;
+const MONTHS = [
+  { label: "January", value: "01" },
+  { label: "February", value: "02" },
+  { label: "March", value: "03" },
+  { label: "April", value: "04" },
+  { label: "May", value: "05" },
+  { label: "June", value: "06" },
+  { label: "July", value: "07" },
+  { label: "August", value: "08" },
+  { label: "September", value: "09" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" },
+];
+const TIME_SLOTS = [
+  { value: "09:00", label: "09:00 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "11:00", label: "11:00 AM" },
+  { value: "12:00", label: "12:00 PM" },
+  { value: "13:00", label: "01:00 PM" },
+  { value: "14:00", label: "02:00 PM" },
+  { value: "15:00", label: "03:00 PM" },
+  { value: "16:00", label: "04:00 PM" },
+  { value: "17:00", label: "05:00 PM" },
+  { value: "18:00", label: "06:00 PM" },
+  { value: "19:00", label: "07:00 PM" },
+  { value: "20:00", label: "08:00 PM" },
+  { value: "21:00", label: "09:00 PM" },
+  { value: "22:00", label: "10:00 PM" },
+];
 
-  // Firestore Timestamp
-  if (date.seconds) {
-    return new Date(date.seconds * 1000).toISOString().split("T")[0];
-  }
-
-  // JS Date
-  if (date instanceof Date) {
-    return date.toISOString().split("T")[0];
-  }
-
-  // String (ISO or YYYY-MM-DD)
-  return date.split("T")[0];
-};
-
-const isSameDate = (joinedDate, selectedDate) => {
-  if (!selectedDate) return true; // no filter applied
-  const joined = normalizeDate(joinedDate);
-  return joined === selectedDate;
-};
-
-
-
+const SESSIONS = ["Morning", "Afternoon", "Evening"];
 
 const StudentsAttendancePage = () => {
+  const [selectedTime, setSelectedTime] = useState("");
+  const timeRef = useRef(null);
+  const monthRef = useRef(null);
+
   const { user, institute } = useAuth();
 
   const [students, setStudents] = useState([]);
-  const [search, setSearch] = useState("");
   const [attendance, setAttendance] = useState({});
-  const [summary, setSummary] = useState({});
-  const [selectedDate, setSelectedDate] = useState("");
-  // 🔢 Pagination state
-const [currentPage, setCurrentPage] = useState(1);
-const itemsPerPage = 10;
+  const [search, setSearch] = useState("");
 
+  const [selectedMonth, setSelectedMonth] = useState("");
 
-  // 🔒 Load institute students
+  const [selectedSession, setSelectedSession] = useState("");
+  const [selectedDate, setSelectedDate] = useState(today);
+  const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+
+  const [summary, setSummary] = useState({
+    totalStudents: 0,
+    presentToday: 0,
+    absentToday: 0,
+  });
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Load Students
   useEffect(() => {
     if (!user || institute?.role !== "institute") return;
 
     const q = query(
       collection(db, "students"),
-      where("instituteId", "==", user.uid)
+      where("instituteId", "==", user.uid),
     );
 
     return onSnapshot(q, (snap) => {
-      setStudents(snap.docs.map((d) => ({ uid: d.id, ...d.data() })));
+      const list = snap.docs.map((d) => ({ uid: d.id, ...d.data() }));
+      setStudents(list);
     });
   }, [user, institute]);
 
   useEffect(() => {
-  setCurrentPage(1);
-}, [search, selectedDate]);
+    const handleClickOutside = (e) => {
+      if (
+        timeRef.current &&
+        !timeRef.current.contains(e.target) &&
+        monthRef.current &&
+        !monthRef.current.contains(e.target)
+      ) {
+        setShowTimeDropdown(false);
+        setShowMonthDropdown(false);
+      }
+    };
 
-  // 📅 Load attendance for selected date
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // ✅ FIXED SUMMARY + ATTENDANCE COUNT (NO DOUBLE COUNT)
   useEffect(() => {
-    if (!user || !selectedDate) {
-  setAttendance({});
-  return;
-}
+    if (!user || !selectedMonth) return;
 
+    const monthKey = `${new Date().getFullYear()}-${selectedMonth}`;
 
     const q = query(
       collection(db, "attendance"),
       where("instituteId", "==", user.uid),
-      where("date", "==", selectedDate)
+      where("month", "==", monthKey),
     );
 
     return onSnapshot(q, (snap) => {
       const map = {};
-      snap.docs.forEach((d) => {
-        map[d.data().studentId] = d.data().status === "present";
-      });
-      setAttendance(map);
-    });
-  }, [user, selectedDate]);
 
-  // 📊 Load attendance summary (after joining date)
-  useEffect(() => {
-    if (!user) return;
+      // ONLY count unique student for selected date + session
+      const todayStatusMap = {};
 
-    const q = query(
-      collection(db, "attendance"),
-      where("instituteId", "==", user.uid)
-    );
+      snap.docs.forEach((docSnap) => {
+        const d = docSnap.data();
 
-    return onSnapshot(q, (snap) => {
-      const stats = {};
+        if (!map[d.studentId]) map[d.studentId] = {};
+        map[d.studentId][`${d.date}_${d.session}_${d.time}`] = d.status;
 
-      snap.docs.forEach((d) => {
-        const { studentId, status, date } = d.data();
-        if (!stats[studentId]) {
-          stats[studentId] = { present: 0, total: 0 };
+        // Only count for selected date + session
+        if (d.date === selectedDate && d.session === selectedSession) {
+          todayStatusMap[d.studentId] = d.status;
         }
-
-        stats[studentId].total++;
-        if (status === "present") stats[studentId].present++;
       });
 
-      setSummary(stats);
+      let presentToday = 0;
+      let absentToday = 0;
+
+      Object.values(todayStatusMap).forEach((status) => {
+        if (status === "present") presentToday++;
+        if (status === "absent") absentToday++;
+      });
+
+      setAttendance(map);
+
+      setSummary({
+        totalStudents: students.length,
+        presentToday,
+        absentToday,
+      });
     });
-  }, [user]);
+  }, [user, selectedMonth, selectedDate, selectedSession, students.length]);
 
-  // 🔍 Search filter
+  // Filter
   const filteredStudents = useMemo(() => {
-  return students.filter((s) => {
-    const fullName = `${s.firstName} ${s.lastName}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
+    return students.filter((s) => {
+      const name = `${s.firstName} ${s.lastName}`.toLowerCase();
 
-   const validForDate = isSameDate(s.joinedDate || s.createdAt, selectedDate);
+      const matchSearch = name.includes(search.toLowerCase());
 
-    return fullName && validForDate;
-  });
-}, [students, search, selectedDate]);
+      // 🔥 NEW FILTERS
+      const matchSession = !selectedSession || s.sessions === selectedSession;
 
-  // 📄 Pagination calculations
-const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
+      const matchTime = !selectedTime || s.timings === selectedTime;
 
-const paginatedStudents = useMemo(() => {
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  return filteredStudents.slice(startIndex, endIndex);
-}, [filteredStudents, currentPage]);
+      return matchSearch && matchSession && matchTime;
+    });
+  }, [students, search, selectedSession, selectedTime]);
 
+  // Pagination
+  const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
+  const paginatedStudents = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredStudents.slice(start, start + itemsPerPage);
+  }, [filteredStudents, currentPage]);
 
-  useEffect(() => {
-  console.log(
-    students.map(s => ({
-      name: `${s.firstName} ${s.lastName}`,
-      joinedDate: s.joinedDate
-    }))
-  );
-}, [students]);
-
-const canEditDate = (joinDate) => {
-  if (!selectedDate) return false;
-  if (selectedDate > today) return false;
-
-  const joined = normalizeDate(joinDate);
-  if (joined && selectedDate < joined) return false;
-
-  return true;
-};
-
-
-
-  // ✅ Save attendance
-  const markAttendance = async (student, value) => {
-    if (!canEditDate(student.joinedDate)) return;
+  // Save Attendance
+  const setStudentAttendance = async (student, status) => {
+    const monthKey = selectedDate.slice(0, 7);
 
     await setDoc(
-      doc(db, "attendance", `${student.uid}_${selectedDate}`),
+      doc(
+        db,
+        "attendance",
+        `${student.uid}_${selectedDate}_${selectedSession}_${selectedTime}`,
+      ),
       {
         instituteId: user.uid,
         studentId: student.uid,
+        session: selectedSession,
         date: selectedDate,
-        month: selectedDate.slice(0, 7),
-        status: value ? "present" : "absent",
+        month: monthKey,
+        status: status,
         createdAt: serverTimestamp(),
+        time: selectedTime,
       },
-      { merge: true }
+      { merge: true },
     );
   };
 
+  // Export CSV
+  const exportData = async () => {
+    const monthKey = `${new Date().getFullYear()}-${selectedMonth}`;
+
+    const q = query(
+      collection(db, "attendance"),
+      where("instituteId", "==", user.uid),
+      where("month", "==", monthKey),
+    );
+
+    const snap = await getDocs(q);
+
+    let csv = "Student Name,Session,Date,Status\n";
+
+    snap.forEach((docSnap) => {
+      const d = docSnap.data();
+      const student = students.find((s) => s.uid === d.studentId);
+
+      csv += `${student?.firstName || ""} ${student?.lastName || ""},${d.session},"${d.date}",${d.status}\n`;
+    });
+
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `attendance_${monthKey}.csv`;
+    a.click();
+  };
+
   return (
-    <div className="h-full bg-white text-[#3F2A14] p-6 rounded-lg"> 
-      {/* 🔍 Search */}
-      <div className="flex items-center mb-4">
-        <div className="flex items-center bg-gray-100 border border-gray-300 rounded-full px-4 py-2 w-full max-w-md">
-
-          🔍
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search students by name..."
-            className="bg-transparent outline-none text-sm w-full ml-2 text-[#3F2A14] placeholder-[#A16207]"
-          />
-        </div>
-      </div>
-
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-3xl font-extrabold text-orange-500">
+    <div className="p-6 bg-[#F3F4F6] min-h-screen">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-orange-500 flex items-center gap-2">
           Students Attendance
         </h1>
-        <input
-  type="date"
-  value={selectedDate}
-  onChange={(e) => setSelectedDate(e.target.value)}
-  className="bg-orange-500 text-white px-4 py-2 rounded-full"
-  placeholder="dd-mm-yyyy"
-/>
 
-      </div>
+        <div ref={monthRef} className="relative min-w-[170px]">
+          <button
+            onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+            className="bg-orange-500 text-white rounded-lg px-4 py-3 font-semibold w-full flex items-center justify-between"
+          >
+            <span>
+              {selectedMonth
+                ? MONTHS.find((m) => m.value === selectedMonth)?.label
+                : "Select Month"}
+            </span>
 
-      {/* Table */}
-    <div className="bg-[#FED7AA] rounded-xl border border-white shadow-sm">
+            <ChevronDown
+              size={16}
+              className={`ml-2 transition-transform ${
+                showMonthDropdown ? "rotate-180" : ""
+              }`}
+            />
+          </button>
 
-      <div className="grid grid-cols-4 gap-4 px-4 py-3 text-black font-semibold text-sm">
-  <div className="text-left">Student Name</div>
-  <div className="text-left">Category</div>
-  <div className="text-center">Present</div>
-  <div className="text-center">Absent</div>
-</div>
-
-
-       <div className="bg-white text-black">
-  {paginatedStudents.length === 0 ? (
-    /* ✅ EMPTY STATE */
-    <div className="grid grid-cols-4 px-4 py-4 border-t text-center text-gray-500 font-medium">
-      <div className="col-span-4">
-        No students assigned
-      </div>
-    </div>
-  ) : (
-    paginatedStudents.map((s) => {
-      const stat = summary[s.uid] || { present: 0, total: 0 };
-      const percentage =
-        stat.total === 0
-          ? 0
-          : Math.round((stat.present / stat.total) * 100);
-
-      return (
-        <div
-          key={s.uid}
-          className="grid grid-cols-4 gap-4 px-4 py-3 border-t items-center text-sm"
-        >
-          <div className="font-semibold">
-            {s.firstName} {s.lastName}
-            <div className="text-xs text-gray-500">
-              {stat.present}/{stat.total} • {percentage}%
+          {showMonthDropdown && (
+            <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md max-h-48 overflow-y-auto">
+              {MONTHS.map((m) => (
+                <div
+                  key={m.value}
+                  onClick={() => {
+                    setSelectedMonth(m.value);
+                    setShowMonthDropdown(false);
+                  }}
+                  className="px-4 py-2 hover:bg-blue-100 cursor-pointer text-black"
+                >
+                  {m.label}
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+        </div>
+      </div>
 
-          <div>{s.category || "-"}</div>
+      {/* SUMMARY */}
+      <div className="bg-white border border-orange-200 rounded-xl p-5 flex justify-between mb-6">
+        <div>
+          <p className="text-gray-600">Total Students</p>
+          <h2 className="text-xl font-bold text-orange-500">
+            {summary.totalStudents}
+          </h2>
+        </div>
 
-          <div className="flex justify-center">
+        <div>
+          <p className="text-gray-600">Present Today</p>
+          <h2 className="text-xl font-bold text-orange-500">
+            {summary.presentToday}
+          </h2>
+        </div>
+
+        <div>
+          <p className="text-gray-600">Absent Today</p>
+          <h2 className="text-xl font-bold text-orange-500">
+            {summary.absentToday}
+          </h2>
+        </div>
+      </div>
+
+      {/* TOOLBAR */}
+      <div className="bg-white border border-orange-200 rounded-xl p-4 flex justify-between items-center mb-6">
+        <div className="flex gap-6 items-center">
+          <div className="text-lg font-bold text-black">Attendance Records</div>
+
+          <select
+            value={selectedSession}
+            onChange={(e) => setSelectedSession(e.target.value)}
+            className="bg-white border border-orange-300 rounded-lg px-4 py-2 font-semibold outline-none"
+          >
+            <option value="" disabled>
+              Session
+            </option>
+
+            {SESSIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+
+          <div ref={timeRef} className="relative min-w-[200px]">
             <button
-              disabled={!canEditDate(s.joinedDate)}
-              onClick={() => markAttendance(s, true)}
-              className={
-                "px-3 py-1 rounded-full text-xs font-semibold w-fit " +
-                (attendance[s.uid] === true
-                  ? "bg-green-500 text-white"
-                  : "bg-gray-200 text-gray-700")
-              }
+              onClick={() => setShowTimeDropdown(!showTimeDropdown)}
+              className="w-full border border-orange-300 bg-white rounded-lg px-4 py-2 font-semibold flex items-center justify-between"
             >
-              Present
-            </button>
-          </div>
+              <span>
+                {selectedTime
+                  ? TIME_SLOTS.find((t) => t.value === selectedTime)?.label
+                  : "Timings"}
+              </span>
 
-          <div className="flex justify-center">
-            <button
-              disabled={!canEditDate(s.joinedDate)}
-              onClick={() => markAttendance(s, false)}
-              className={
-                "px-3 py-1 rounded-full text-xs font-semibold w-fit " +
-                (attendance[s.uid] === false
-                  ? "bg-red-500 text-white"
-                  : "bg-gray-200 text-gray-700")
-              }
-            >
-              Absent
+              <ChevronDown
+                size={16}
+                className={`ml-2 transition-transform ${
+                  showTimeDropdown ? "rotate-180" : ""
+                }`}
+              />
             </button>
+
+            {showTimeDropdown && (
+              <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400">
+                {TIME_SLOTS.map((t) => (
+                  <div
+                    key={t.value}
+                    onClick={() => {
+                      setSelectedTime(t.value);
+                      setShowTimeDropdown(false);
+                    }}
+                    className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+                  >
+                    {t.label}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-      );
-    })
-  )}
-</div>
 
+        <div className="flex gap-3 items-center">
+          <div className="flex items-center border border-orange-400 rounded-lg px-3 py-2">
+            <Search size={18} className="text-gray-500" />
+            <input
+              placeholder="Search Name"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="outline-none ml-2"
+            />
+          </div>
+
+          <button
+            onClick={exportData}
+            className="border border-orange-400 text-gray-700 px-5 py-2 rounded-lg flex items-center gap-2"
+          >
+            <Download size={18} /> Export
+          </button>
+        </div>
+      </div>
+
+      {/* TABLE */}
+      <div className="border border-orange-300 rounded-xl overflow-hidden">
+        <div className="grid grid-cols-4 bg-[#1F2937] text-orange-400 font-semibold p-4">
+          <div>Students Name</div>
+          <div>Session</div>
+          <div className="text-center">Present</div>
+          <div className="text-center">Absent</div>
+        </div>
+
+        <div className="bg-white min-h-[300px]">
+          {paginatedStudents.map((s, index) => {
+            const currentStatus =
+              attendance[s.uid]?.[
+                `${selectedDate}_${selectedSession}_${selectedTime}`
+              ];
+
+            return (
+              <div
+                key={s.uid}
+                className="grid grid-cols-4 p-4 border-t items-center"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="mr-1 text-gray-500 font-semibold">
+                    {(currentPage - 1) * itemsPerPage + index + 1}.
+                  </div>
+
+                  <div className="font-semibold">
+                    {s.firstName} {s.lastName}
+                  </div>
+                </div>
+
+                <div>{s.sessions || "-"}</div>
+
+                <div className="flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={currentStatus === "present"}
+                    onChange={() => setStudentAttendance(s, "present")}
+                    className="w-5 h-5"
+                  />
+                </div>
+
+                <div className="flex justify-center">
+                  <input
+                    type="checkbox"
+                    checked={currentStatus === "absent"}
+                    onChange={() => setStudentAttendance(s, "absent")}
+                    className="w-5 h-5"
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <Pagination
-  currentPage={currentPage}
-  totalPages={totalPages}
-  onPageChange={(page) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }}
-/>
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
     </div>
   );
 };

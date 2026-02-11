@@ -39,7 +39,7 @@ const Fitness = () => {
       <section className="max-w-7xl mx-auto px-6 py-12">
         {/* BACK */}
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate("/categories")}
           className="text-orange-500 text-lg flex items-center gap-2 mb-6 font-medium"
         >
           ← Back to categories

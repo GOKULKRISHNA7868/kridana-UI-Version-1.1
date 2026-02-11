@@ -442,6 +442,8 @@ const Landing = () => {
       {/* ================================================= */}
       {/* ================= ✅ REELS SECTION ================= */}
       {/* ================================================= */}
+
+      {/* ================= FULLSCREEN REEL VIEWER ================= */}
       <section className="py-14 px-6 md:px-16 bg-gray-50">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-3xl font-semibold">
@@ -450,13 +452,16 @@ const Landing = () => {
         </div>
 
         <div className="flex gap-6 overflow-x-auto scrollbar-hide">
-          {reels.map((r, index) => (
+          {reels.slice(0, 3).map((r, index) => (
             <motion.div
               key={r.id}
               whileHover={{ scale: 1.05 }}
               onClick={() => {
-                setActiveReelIndex(index);
-                setShowReelViewer(true);
+                navigate("/reels", {
+                  state: {
+                    clickedReel: r,
+                  },
+                });
               }}
               className="min-w-[230px] h-[420px] rounded-3xl overflow-hidden shadow-xl cursor-pointer bg-black relative"
             >
@@ -475,59 +480,6 @@ const Landing = () => {
           ))}
         </div>
       </section>
-
-      {/* ================= FULLSCREEN REEL VIEWER ================= */}
-      {showReelViewer && (
-        <div className="fixed inset-0 bg-black z-[999] flex items-center justify-center">
-          <div className="w-[360px] h-[640px] rounded-3xl overflow-hidden relative bg-black">
-            <video
-              src={reels[activeReelIndex]?.videoUrl}
-              controls
-              autoPlay
-              className="w-full h-full object-cover"
-            />
-            <button
-              onClick={() => {
-                const reel = reels[activeReelIndex];
-
-                setShowReelViewer(false);
-
-                if (reel.type === "trainer") {
-                  navigate(`/trainers/${reel.ownerId}`);
-                } else {
-                  navigate(`/institutes/${reel.ownerId}`);
-                }
-
-                // ✅ Delay ensures scroll happens after route change
-                setTimeout(() => window.scrollTo(0, 0), 200);
-              }}
-              className="absolute top-4  left-6 bg-white px-4 py-2 rounded-full text-sm font-bold"
-            >
-              View Profile 👤
-            </button>
-
-            {/* Close Button */}
-            <button
-              onClick={() => setShowReelViewer(false)}
-              className="absolute top-4 right-4 bg-white px-3 py-1 rounded-full text-sm font-bold"
-            >
-              ✕
-            </button>
-
-            {/* Next Reel */}
-            <button
-              onClick={() =>
-                setActiveReelIndex((prev) =>
-                  prev + 1 >= reels.length ? 0 : prev + 1,
-                )
-              }
-              className="absolute bottom-6 right-6 bg-orange-500 text-white px-4 py-2 rounded-full text-sm"
-            >
-              Next ▶
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

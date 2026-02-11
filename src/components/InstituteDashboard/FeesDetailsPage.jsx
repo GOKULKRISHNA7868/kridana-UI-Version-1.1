@@ -1,302 +1,348 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../../firebase";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { useRef } from "react";
+import { ChevronDown } from "lucide-react";
+import { setDoc, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 
-const InstituteFees = () => {
+const MONTHS = [
+  { label: "January", value: "01" },
+  { label: "February", value: "02" },
+  { label: "March", value: "03" },
+  { label: "April", value: "04" },
+  { label: "May", value: "05" },
+  { label: "June", value: "06" },
+  { label: "July", value: "07" },
+  { label: "August", value: "08" },
+  { label: "September", value: "09" },
+  { label: "October", value: "10" },
+  { label: "November", value: "11" },
+  { label: "December", value: "12" },
+];
+
+const FeesDetailsPage = () => {
+  const instituteId = auth.currentUser?.uid;
+
   const [students, setStudents] = useState([]);
+  const [fees, setFees] = useState([]);
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [search, setSearch] = useState("");
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
-  const [feeHistory, setFeeHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
 
-  const [feeData, setFeeData] = useState({
-    month: "",
-    year: new Date().getFullYear(),
-    baseFee: "",
-    discount: "",
-    extra: "",
-    dueDate: "",
-    paymentMode: "Cash",
-    remarks: "",
+  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
+  const monthRef = useRef(null);
+
+  const [addData, setAddData] = useState({
+    firstName: "",
+    lastName: "",
+    sessions: "",
+    fees: "",
   });
 
-  const instituteId = auth.currentUser?.uid;
+  const [editData, setEditData] = useState({
+    firstName: "",
+    lastName: "",
+    sessions: "",
+    fees: "",
+  });
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (monthRef.current && !monthRef.current.contains(e.target)) {
+        setShowMonthDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   /* ================= FETCH STUDENTS ================= */
   useEffect(() => {
     if (!instituteId) return;
 
-    const fetchStudents = async () => {
-      const q = query(
-        collection(db, "students"),
-        where("instituteId", "==", instituteId)
-      );
-      const snap = await getDocs(q);
-      setStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
-    };
+    const q = query(
+      collection(db, "students"),
+      where("instituteId", "==", instituteId),
+    );
 
-    fetchStudents();
+    return onSnapshot(q, (snap) => {
+      setStudents(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
   }, [instituteId]);
 
-  /* ================= FETCH FEES (NO INDEX ERROR) ================= */
-  const fetchFeeHistory = async (studentId) => {
+  /* ================= FETCH FEES ================= */
+  /* ================= FETCH FEES ================= */
+  useEffect(() => {
+    if (!instituteId) return;
+
     const q = query(
       collection(db, "studentFees"),
-      where("studentId", "==", studentId)
+      where("instituteId", "==", instituteId),
     );
 
-    const snap = await getDocs(q);
+    return onSnapshot(q, (snap) => {
+      setFees(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+  }, [instituteId]);
 
-    const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-    // Sort locally instead of Firestore index
-    data.sort((a, b) =>
-      `${b.year}${b.month}`.localeCompare(`${a.year}${a.month}`)
+  /* ================= SEARCH FILTER ================= */
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) =>
+      `${s.firstName} ${s.lastName}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
     );
+  }, [students, search]);
 
-    setFeeHistory(data);
+  const handleAdd = () => setShowAddModal(true);
+
+  const handleEdit = () => {
+    if (!selectedStudent) {
+      alert("Select a student first");
+      return;
+    }
+
+    setEditData({
+      firstName: selectedStudent.firstName || "",
+      lastName: selectedStudent.lastName || "",
+      sessions: selectedStudent.sessions || "",
+      fees: selectedStudent.fees || "",
+    });
+
+    setShowEditModal(true);
   };
 
-  /* ================= RECEIPT NUMBER ================= */
-  const generateReceiptNo = () => {
-    const date = new Date();
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const rand = Math.floor(1000 + Math.random() * 9000);
-    return `REC-${y}${m}-${rand}`;
-  };
+  const addStudent = async () => {
+    const newRef = doc(collection(db, "students"));
 
-  /* ================= GENERATE FEE ================= */
-  const generateFee = async () => {
-    if (!selectedStudent) return alert("Select student");
-    if (!feeData.month || !feeData.baseFee)
-      return alert("Month & Base Fee required");
-
-    const exists = feeHistory.find(
-      (f) => f.month === feeData.month && f.year === feeData.year
-    );
-    if (exists) return alert("Fee already generated for this month");
-
-    const total =
-      Number(feeData.baseFee || 0) -
-      Number(feeData.discount || 0) +
-      Number(feeData.extra || 0);
-
-    await addDoc(collection(db, "studentFees"), {
-      studentId: selectedStudent.id,
-      studentName: `${selectedStudent.firstName} ${
-        selectedStudent.lastName || ""
-      }`,
+    await setDoc(newRef, {
+      ...addData,
       instituteId,
-      month: feeData.month,
-      year: feeData.year,
-      baseFee: Number(feeData.baseFee),
-      discount: Number(feeData.discount),
-      extraCharges: Number(feeData.extra),
-      finalAmount: total,
-      paymentMode: feeData.paymentMode,
-      receiptNo: generateReceiptNo(),
-      remarks: feeData.remarks,
-      dueDate: feeData.dueDate,
-      status: "pending",
       createdAt: serverTimestamp(),
     });
 
-    alert("Fee generated successfully");
-    fetchFeeHistory(selectedStudent.id);
+    setShowAddModal(false);
   };
 
-  /* ================= UPDATE STATUS ================= */
-  const updateStatus = async (id, status) => {
-    await updateDoc(doc(db, "studentFees", id), {
-      status,
-      paidAt: status === "paid" ? serverTimestamp() : null,
-    });
-    fetchFeeHistory(selectedStudent.id);
+  const updateStudent = async () => {
+    await updateDoc(doc(db, "students", selectedStudent.id), editData);
+    setShowEditModal(false);
   };
 
-  /* ================= DELETE ================= */
-  const deleteFee = async (id) => {
-    if (!window.confirm("Delete this fee record?")) return;
-    await deleteDoc(doc(db, "studentFees", id));
-    fetchFeeHistory(selectedStudent.id);
+  /* ================= CALCULATIONS ================= */
+
+  const totalStudents = students.length;
+
+  const totalAmount = students.reduce((sum, s) => sum + Number(s.fees || 0), 0);
+
+  const totalPaid = fees
+    .filter((f) => f.status === "paid")
+    .reduce((sum, f) => sum + Number(f.finalAmount || 0), 0);
+
+  const totalPending = totalAmount - totalPaid;
+
+  const getStudentFeeData = (student) => {
+    const studentFee = Number(student.fees || 0);
+
+    const paidFees = fees
+      .filter((f) => f.studentId === student.id && f.status === "paid")
+      .reduce((sum, f) => sum + Number(f.finalAmount || 0), 0);
+
+    return {
+      total: studentFee,
+      paid: paidFees,
+      pending: studentFee - paidFees,
+    };
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto text-gray-100">
-      <h1 className="text-2xl text-orange-500 font-bold  mb-6">Institute Fee Management</h1>
+    <div className="p-6 bg-[#f3f4f6] min-h-screen">
+      {/* HEADER */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Fees Details</h1>
 
-      {/* STUDENTS */}
-      <div className="grid md:grid-cols-2 gap-4">
-        {students.map((s) => (
-          <div
-            key={s.id}
-            onClick={() => {
-              setSelectedStudent(s);
-              fetchFeeHistory(s.id);
-            }}
-            className="bg-gray-100 border  p-4 rounded cursor-pointer hover:bg-orange-200"
-          >
-            <h3 className="font-semibold text-black">
-              {s.firstName} {s.lastName}
-            </h3>
-            <p className="text-sm text-black">Category: {s.category}</p>
-            <p className="text-sm text-black">Fee: ₹{s.studentFee}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* FEE FORM */}
-      {selectedStudent && (
-        <div className="mt-8 bg-gray-100 p-6 rounded border ">
-          <h2 className="text-xl text-black font-semibold mb-4">
-            Fee Details — {selectedStudent.firstName}
-          </h2>
-
-          <div className="grid md:grid-cols-3 gap-4">
-            <input
-              type="month"
-              className="input"
-              onChange={(e) =>
-                setFeeData({
-                  ...feeData,
-                  month: e.target.value.split("-")[1],
-                  year: e.target.value.split("-")[0],
-                })
-              }
-            />
-
-            <input
-              className="input"
-              placeholder="Base Fee"
-              type="number"
-              onChange={(e) =>
-                setFeeData({ ...feeData, baseFee: e.target.value })
-              }
-            />
-
-            <input
-              className="input"
-              placeholder="Discount"
-              type="number"
-              onChange={(e) =>
-                setFeeData({ ...feeData, discount: e.target.value })
-              }
-            />
-
-            <input
-              className="input"
-              placeholder="Extra Charges"
-              type="number"
-              onChange={(e) =>
-                setFeeData({ ...feeData, extra: e.target.value })
-              }
-            />
-
-            <select
-              className="input"
-              onChange={(e) =>
-                setFeeData({ ...feeData, paymentMode: e.target.value })
-              }
-            >
-              <option>Cash</option>
-              <option>UPI</option>
-              <option>Card</option>
-              <option>Bank Transfer</option>
-              <option>Other</option>
-            </select>
-
-            <input
-              className="input"
-              placeholder="Remarks"
-              onChange={(e) =>
-                setFeeData({ ...feeData, remarks: e.target.value })
-              }
-            />
-          </div>
-
+        <div ref={monthRef} className="relative min-w-[170px]">
           <button
-            onClick={generateFee}
-            className="mt-4 bg-green-500 px-6 py-2 rounded"
+            onClick={() => setShowMonthDropdown(!showMonthDropdown)}
+            className="bg-orange-500 text-white rounded-lg px-4 py-3 font-semibold w-full flex items-center justify-between"
           >
-            Generate Fee
+            <span>
+              {selectedMonth
+                ? MONTHS.find((m) => m.value === selectedMonth)?.label
+                : "Select Month"}
+            </span>
+
+            <ChevronDown
+              size={16}
+              className={`transition-transform ${showMonthDropdown ? "rotate-180" : ""}`}
+            />
           </button>
 
-          {/* HISTORY */}
-          <h3 className="mt-8 text-black font-semibold">Fee History</h3>
-          <div className="overflow-x-auto mt-3">
-            <table className="w-full border text-sm">
-             <thead className="bg-orange-300 text-black-400">
-  <tr>
-    <th className="px-3 py-2 text-left">Month</th>
-    <th className="px-3 py-2 text-left">Amount</th>
-    <th className="px-3 py-2 text-left">Status</th>
-    <th className="px-3 py-2 text-left">Mode</th>
-    <th className="px-3 py-2 text-left">Receipt</th>
-    <th className="px-3 py-2 text-left">Action</th>
-  </tr>
-</thead>
-
-              <tbody>
-                {feeHistory.map((f) => (
-                  <tr
-  key={f.id}
-  className="border-t border-orange-200 text-[#3F2A14]"
->
-
-                    <td className="px-3 py-2">
-                      {f.month}/{f.year}
-                    </td>
-                    <td className="px-3 py-2">₹{f.finalAmount}</td>
-                    <td
-  className={
-    "px-3 py-2 " +
-    (f.status === "paid"
-      ? "text-green-600 font-semibold"
-      : "text-yellow-600 font-semibold")
-  }
->
-  {f.status}
-</td>
-                    <td className="px-3 py-2">{f.paymentMode}</td>
-                    <td className="px-3 py-2">{f.receiptNo}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">
-  <div className="flex gap-4">
-    <button
-      onClick={() => updateStatus(f.id, "paid")}
-      className="text-green-600 font-semibold hover:underline"
-    >
-      Approve
-    </button>
-
-    <button
-      onClick={() => deleteFee(f.id)}
-      className="text-red-600 font-semibold hover:underline"
-    >
-      Delete
-    </button>
-  </div>
-</td>
-
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {showMonthDropdown && (
+            <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md">
+              {MONTHS.map((m) => (
+                <div
+                  key={m.value}
+                  onClick={() => {
+                    setSelectedMonth(m.value);
+                    setShowMonthDropdown(false);
+                  }}
+                  className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+                >
+                  {m.label}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* STATS CARDS */}
+      <div className="grid grid-cols-4 gap-6 mb-6">
+        <StatCard title="Total Fees Amount" value={`₹ ${totalAmount}`} />
+        <StatCard title="Total Fees Pending" value={`₹ ${totalPending}`} />
+        <StatCard title="Total Fees Paid" value={`₹ ${totalPaid}`} />
+        <StatCard title="Total Students" value={totalStudents} />
+      </div>
+
+      {/* SEARCH + ADD EDIT */}
+      <div className="flex justify-between mb-4">
+        <input
+          type="text"
+          placeholder="Search here..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border border-orange-400 rounded px-4 py-2 w-80 focus:outline-none focus:ring-0 focus:border-orange-400"
+        />
+
+        <div className="flex gap-4">
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="bg-orange-500 text-white px-4 py-2 rounded"
+          >
+            + Add
+          </button>
+
+          <button
+            onClick={handleEdit}
+            className="border border-orange-500 text-orange-500 px-4 py-2 rounded"
+          >
+            Edit
+          </button>
+        </div>
+      </div>
+
+      {/* TABLE */}
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="grid grid-cols-5 bg-black text-orange-500 px-6 py-3 font-semibold">
+          <div>Students Name</div>
+          <div>Sessions</div>
+          <div>Total Amount</div>
+          <div>Paid</div>
+          <div>Pending</div>
+        </div>
+
+        {filteredStudents.map((student) => {
+          const data = getStudentFeeData(student);
+
+          return (
+            <div
+              key={student.id}
+              onClick={() => setSelectedStudent(student)}
+              className={`grid grid-cols-5 px-6 py-4 border-t items-center cursor-pointer
+  ${selectedStudent?.id === student.id ? "bg-orange-50" : ""}`}
+            >
+              <div>
+                {student.firstName} {student.lastName}
+              </div>
+
+              {/* ✅ THIS IS THE FIX */}
+              <div>{student.sessions || "-"}</div>
+              <div>₹ {data.total}</div>
+              <div className="text-green-600 font-semibold">₹ {data.paid}</div>
+              <div className="text-red-600 font-semibold">₹ {data.pending}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* SAVE & CANCEL */}
+      <div className="flex justify-end gap-6 mt-8">
+        <button
+          onClick={() => {
+            setSelectedMonth("");
+            setSearch("");
+          }}
+          className="text-lg font-medium text-black"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={() => {
+            alert("Saved Successfully ✅");
+          }}
+          className="bg-orange-500 text-white px-8 py-3 rounded-lg text-lg font-semibold"
+        >
+          Save
+        </button>
+      </div>
+      {showAddModal && (
+        <ModalForm
+          title="Add Student"
+          data={addData}
+          setData={setAddData}
+          onSave={addStudent}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
+      {showEditModal && (
+        <ModalForm
+          title="Edit Student"
+          data={editData}
+          setData={setEditData}
+          onSave={updateStudent}
+          onClose={() => setShowEditModal(false)}
+        />
       )}
     </div>
   );
 };
 
-export default InstituteFees;
+const StatCard = ({ title, value }) => (
+  <div className="bg-black text-white p-4 rounded-lg">
+    <h3 className="text-sm">{title}</h3>
+    <p className="text-xl font-bold text-orange-500 mt-2">{value}</p>
+  </div>
+);
+const ModalForm = ({ title, data, setData, onSave, onClose }) => (
+  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded-xl w-96 space-y-4">
+      <h2 className="font-semibold">{title}</h2>
+
+      {Object.keys(data).map((k) => (
+        <input
+          key={k}
+          className="border w-full p-2 rounded"
+          placeholder={k}
+          value={data[k]}
+          onChange={(e) => setData({ ...data, [k]: e.target.value })}
+        />
+      ))}
+
+      <div className="flex justify-end gap-3">
+        <button onClick={onClose}>Cancel</button>
+        <button
+          onClick={onSave}
+          className="bg-orange-500 text-white px-4 py-2 rounded"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+export default FeesDetailsPage;

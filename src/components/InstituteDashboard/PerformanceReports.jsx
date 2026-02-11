@@ -123,7 +123,6 @@ const subCategoryMap = {
     "Creative & Kids Dance",
   ],
 };
-
 export default function StudentPerformanceReport() {
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -388,10 +387,22 @@ export default function StudentPerformanceReport() {
         </select>
 
         <select className="border border-orange-300 rounded-lg p-3">
-          <option>Age*</option>
+          <option value="">Select Age</option>
+          <option>01 – 10 years Kids</option>
+          <option>11 – 20 years Teenage</option>
+          <option>21 – 45 years Adults</option>
+          <option>45 – 60 years Middle Age</option>
+          <option>61 – 100 years Senior Citizens</option>
         </select>
         <select className="border border-orange-300 rounded-lg p-3">
-          <option>Belt*</option>
+          <option value="">Select Belt</option>
+          <option>White</option>
+          <option>Yellow</option>
+          <option>Orange</option>
+          <option>Blue</option>
+          <option>Brown</option>
+          <option>Black</option>
+          <option>Green</option>
         </select>
       </div>
 

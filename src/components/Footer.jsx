@@ -14,12 +14,13 @@ const Footer = ({ darkMode }) => {
 
   return (
     <footer
-      className={`w-full pt-16 pb-8 px-6 lg:px-20 relative overflow-hidden transition-all duration-700
+      className={`w-full pt-10 pb-6 px-6 lg:px-20 relative overflow-hidden transition-all duration-700
       ${loaded ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}
-      ${darkMode
+      ${
+        darkMode
           ? "bg-gradient-to-r from-[#0f0f0f] via-[#1a1a1a] to-[#0f0f0f] text-gray-300"
           : "bg-gradient-to-r from-[#FFE2B8] via-[#FFF1DB] to-[#FFD199] text-[#5D3A09]"
-        }`}
+      }`}
     >
       {/* BACKGROUND GLOWS */}
       <div
@@ -31,19 +32,20 @@ const Footer = ({ darkMode }) => {
         ${darkMode ? "bg-black/40" : "bg-black/10"}`}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-14 relative z-10">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-14 relative z-10">
         {/* LOGO + INTRO */}
-        <div className="flex flex-col items-start gap-5">
+        <div className="flex flex-col items-start gap-5 md:col-span-2">
           <Link to="/" onClick={scrollToTop}>
             <div
               className={`w-28 h-28 rounded-full flex items-center justify-center shadow-xl
               hover:scale-105 transition-all duration-500 cursor-pointer
               ${darkMode ? "bg-white" : "bg-white"}`}
             >
-              <div className="inline-flex items-center justify-center
+              <div
+                className="inline-flex items-center justify-center
   w-[32rem] aspect-square
-  rounded-full bg-white overflow-hidden shadow-2xl">
-
+  rounded-full bg-white overflow-hidden shadow-2xl"
+              >
                 <img
                   src="/Kridana logo.png"
                   alt="Kridana Logo"
@@ -54,31 +56,41 @@ const Footer = ({ darkMode }) => {
           </Link>
 
           <h2
-            className={`text-2xl font-bold tracking-wide ${darkMode ? "text-white" : "text-[#3b2406]"
-              }`}
+            className={`text-2xl font-bold tracking-wide ${
+              darkMode ? "text-white" : "text-[#3b2406]"
+            }`}
           >
             KRIDANA
           </h2>
 
           <p
-            className={`text-base leading-relaxed text-justify ${darkMode ? "text-gray-400" : "text-[#5D3A09]/80"
-              }`}
+            className={`text-base leading-relaxed text-justify ${
+              darkMode ? "text-gray-400" : "text-[#5D3A09]/80"
+            }`}
           >
-            Kridana is a SaaS platform designed to solve everyday business challenges across B2B, B2C, and C2C ecosystems by streamlining operations and enabling scalable growth. Built specifically for the sports ecosystem, it empowers institutions, academies, and independent trainers with tools to manage attendance, performance, reporting, and business workflows. By digitizing operations, Kridana helps sports professionals grow efficiently, improve engagement, and focus on delivering better training outcomes.
+            Kridana is a SaaS platform designed to solve everyday business
+            challenges across B2B, B2C, and C2C ecosystems by streamlining
+            operations and enabling scalable growth. Built specifically for the
+            sports ecosystem, it empowers institutions, academies, and
+            independent trainers with tools to manage attendance, performance,
+            reporting, and business workflows. By digitizing operations, Kridana
+            helps sports professionals grow efficiently, improve engagement, and
+            focus on delivering better training outcomes.
           </p>
 
           {/* SOCIAL */}
           <div className="flex gap-3 mt-2">
             <a
-              href="https://www.linkedin.com/company/106791872/admin/page-posts/published/"
+              href="https://www.linkedin.com/company/kridana-sports-software/"
               target="_blank"
               rel="noopener noreferrer"
               className={`w-10 h-10 flex justify-center items-center rounded-full border
-              ${darkMode
-                  ? "border-[#DB6A2E] text-[#DB6A2E] hover:bg-[#DB6A2E] hover:text-black"
-                  : "border-[#DB6A2E] text-[#DB6A2E] hover:bg-[#DB6A2E] hover:text-white"
-                }
-              transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
+    ${
+      darkMode
+        ? "border-[#DB6A2E] text-[#DB6A2E] hover:bg-[#DB6A2E] hover:text-black"
+        : "border-[#DB6A2E] text-[#DB6A2E] hover:bg-[#DB6A2E] hover:text-white"
+    }
+    transition-all duration-300 hover:-translate-y-1 hover:shadow-lg`}
             >
               <FaLinkedinIn size={18} />
             </a>
@@ -86,21 +98,24 @@ const Footer = ({ darkMode }) => {
         </div>
 
         {/* COMPANY */}
-        <div className="flex flex-col gap-3">
-          <h3 className="text-xl font-semibold mb-2 text-[#DB6A2E]">
-            Company
-          </h3>
+        <div className="flex flex-col gap-3 md:pl-6">
+          <h3 className="text-xl font-semibold mb-2 text-[#DB6A2E]">Company</h3>
           {[
-
             { label: "About Us", link: "/about" },
             { label: "Contact Us", link: "/contact" },
             { label: "Career", link: "/career" },
             { label: "Terms & Conditions", link: "/terms" },
             { label: "Privacy Policy", link: "/privacy" },
             { label: "Payment Policy", link: "/paymentpolicy" },
-            { label: "Delivery & Shipping Policy", link: "/delivery-shipping-policy" },
+            {
+              label: "Delivery & Shipping Policy",
+              link: "/delivery-shipping-policy",
+            },
             { label: "Customer-Centric Policies", link: "/customer-policies" },
-
+            {
+              label: "Payment & Refund Policy",
+              link: "/payment-refund-policy",
+            },
           ].map((item, i) => (
             <Link
               onClick={scrollToTop}
@@ -122,7 +137,6 @@ const Footer = ({ darkMode }) => {
             Categories
           </h3>
           {[
-            { label: "Play School", link: "/services/play-school" },
             { label: "Wellness", link: "/services/wellness" },
             { label: "Martial Arts", link: "/services/martial-arts" },
             {
@@ -160,14 +174,13 @@ const Footer = ({ darkMode }) => {
 
         {/* ADDRESS */}
         <div className="flex flex-col gap-4">
-          <h3 className="text-xl font-semibold mb-2 text-[#DB6A2E]">
-            Address
-          </h3>
+          <h3 className="text-xl font-semibold mb-2 text-[#DB6A2E]">Address</h3>
           <div>
             <p className="font-semibold">Head Office</p>
             <p
-              className={`text-base leading-relaxed ${darkMode ? "text-gray-400" : "text-[#5D3A09]/80"
-                }`}
+              className={`text-base leading-relaxed ${
+                darkMode ? "text-gray-400" : "text-[#5D3A09]/80"
+              }`}
             >
               KDASTSHO Fintech Solutions Pvt Ltd <br />
               Opp SAIBABA Temple, Ramapuram, Nandyal District, AP 518122 <br />
@@ -184,28 +197,15 @@ const Footer = ({ darkMode }) => {
 
       {/* COPYRIGHT */}
       <div
-        className={`text-center text-lg mt-12 font-medium relative z-10 ${darkMode ? "text-gray-400" : "text-[#5D3A09]"
-          }`}
+        className={`text-center text-lg mt-12 font-medium relative z-10 ${
+          darkMode ? "text-gray-400" : "text-[#5D3A09]"
+        }`}
       >
         © {new Date().getFullYear()}{" "}
         <span className="font-semibold bg-gradient-to-r from-[#F69B2E] to-[#DB6A2E] bg-clip-text text-transparent">
-          Kridana. All rights reserved. Kridana is a product of Kdastsho Fintech Solutions Pvt. Ltd., India
-        </span>{" "}
-        |{" "}
-        <Link to="/terms" onClick={scrollToTop} className="hover:text-[#DB6A2E] transition-all">
-          Terms & Conditions
-        </Link>{" "}
-        |{" "}
-        <Link to="/privacy" onClick={scrollToTop} className="hover:text-[#DB6A2E] transition-all">
-          Privacy Policy
-        </Link>{" "}
-        |{" "}
-        <Link
-          to="/paymentpolicy" onClick={scrollToTop}
-          className="hover:text-[#DB6A2E] transition-all"
-        >
-          Payment Policy
-        </Link>
+          Kridana. All rights reserved. Kridana is a product of Kdastsho Fintech
+          Solutions Pvt. Ltd., India
+        </span>
       </div>
 
       {/* SCROLL TOP */}

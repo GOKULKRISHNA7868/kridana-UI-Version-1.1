@@ -26,6 +26,7 @@ import AddAddressPage from "./components/AddAddressPage.jsx";
 import PaymentPage from "./components/PaymentPage.jsx";
 import CartPage from "./components/CartPage.jsx";
 import WishlistPage from "./components/WishlistPage.jsx";
+import ReelViewer from "./pages/ReelViewer";
 
 /* ================= DASHBOARDS (index.jsx based) ================= */
 import InstituteDashboard from "./components/InstituteDashboard";
@@ -42,7 +43,6 @@ import Privacy from "./pages/Privacy.jsx";
 import PaymentPolicy from "./pages/PaymentPolicy.jsx";
 import CustomerCentricPolicies from "./pages/CustomerCentricPolicies.jsx";
 import DeliveryAndShippingPolicy from "./pages/DeliveryAndShippingPolicy.jsx";
-
 
 /* ================= SELL FLOW ================= */
 import SellSportsMaterial from "./components/InstituteDashboard/SellSportsMaterial.jsx";
@@ -101,7 +101,7 @@ function App() {
 
               {/* LANDING */}
               <Route path="/RoleSelection" element={<RoleSelection />} />
-
+              <Route path="/reels" element={<ReelViewer />} />
               {/* DASHBOARDS */}
               <Route
                 path="/trainers/dashboard"
@@ -154,10 +154,14 @@ function App() {
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/paymentpolicy" element={<PaymentPolicy />} />
-              <Route path="/customer-policies" element={<CustomerCentricPolicies />} />
-              <Route path="/delivery-shipping-policy" element={<DeliveryAndShippingPolicy />} />
-
-
+              <Route
+                path="/customer-policies"
+                element={<CustomerCentricPolicies />}
+              />
+              <Route
+                path="/delivery-shipping-policy"
+                element={<DeliveryAndShippingPolicy />}
+              />
 
               {/* SERVICES */}
               <Route path="/services/martial-arts" element={<MartialArts />} />
@@ -179,7 +183,7 @@ function App() {
               <Route path="/services/ice-sports" element={<IceSports />} />
               <Route path="/services/wellness" element={<Wellness />} />
               <Route path="/services/dance" element={<Dance />} />
-              
+
               <Route path="/plans" element={<Plans />} />
               <Route
                 path="/book-demo/:instituteId"

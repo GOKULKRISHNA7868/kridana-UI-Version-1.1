@@ -23,7 +23,7 @@ import UploadProductDetails from "./UploadProductDetails";
 import Orders from "./Orders";
 import DemoClasses from "./DemoClasses";
 import InstituteBookedDemos from "./InstituteBookedDemos";
-
+import Reelsdata from "./Reelsdata";
 const sidebarItems = [
   "Home",
   "Edit Profile",
@@ -34,9 +34,10 @@ const sidebarItems = [
   "Update Demo Classes",
   "Booked Demos",
   "Salary Details",
-  "Add Trainer Details",
-  "Add Student Details",
+  "Management Details",
+  "Add Customer Details",
   "Performance Reports",
+  "Anyalitics",
   "Orders",
   "Sell Sports Material",
   "Upload Product Details",
@@ -170,9 +171,9 @@ const InstituteDashboard = () => {
         return <FeesDetailsPage />;
       case "Salary Details":
         return <SalaryDetailsPage />;
-      case "Add Trainer Details":
+      case "Management Details":
         return <AddTrainerDetailsPage />;
-      case "Add Student Details":
+      case "Add Customer Details":
         return <AddStudentDetailsPage />;
       case "Payment Details":
         return <PaymentsPage />;
@@ -192,6 +193,8 @@ const InstituteDashboard = () => {
         return <PrivacyPolicy />;
       case "Performance Reports":
         return <PerformanceReports />;
+      case "Anyalitics":
+        return <Reelsdata />;
 
       default:
         return (
@@ -223,12 +226,6 @@ const InstituteDashboard = () => {
 
             if (item === "Trainer’s Attendance")
               displayItem = `${labels.trainers} Attendance`;
-
-            if (item === "Add Trainer Details")
-              displayItem = `Add ${labels.trainers} Details`;
-
-            if (item === "Add Student Details")
-              displayItem = `Add ${labels.students} Details`;
 
             if (item === "Fees Details" && orgType === "Clinic")
               displayItem = "Treatment Fees";

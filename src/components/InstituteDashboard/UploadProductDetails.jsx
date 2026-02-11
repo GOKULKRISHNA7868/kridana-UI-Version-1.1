@@ -174,7 +174,7 @@ const UploadProductDetails = () => {
       const user = auth.currentUser;
 
       await addDoc(collection(db, "products"), {
-        instituteUID: user?.uid,   // ✅ KEEP ONLY THIS ONE
+        instituteUID: user?.uid, // ✅ KEEP ONLY THIS ONE
 
         productName: p.productName,
         brandName: p.brandName,
@@ -215,54 +215,57 @@ const UploadProductDetails = () => {
   /* LIST VIEW */
   /* ================================================= */
   if (view === "list") {
-   return (
-  <div className="w-full flex justify-center">
-    <div className="p-8 bg-white rounded-2xl shadow-xl max-w-4xl w-full">
-        <div className="flex justify-end mb-8 gap-3">
-          <button
-            onClick={() => {
-              setProducts([{ ...emptyProduct }]); // 🔥 reset to fresh form
-              setEditIndex(null);
-              setView("form");
-            }}
-            className="bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold"
-          >
-            + Add
-          </button>
-        </div>
+    return (
+      <div className="w-full flex justify-center">
+        <div className="p-8 bg-white rounded-2xl shadow-xl max-w-4xl w-full">
+          <div className="flex justify-end mb-8 gap-3">
+            <button
+              onClick={() => {
+                setProducts([{ ...emptyProduct }]); // 🔥 reset to fresh form
+                setEditIndex(null);
+                setView("form");
+              }}
+              className="bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold"
+            >
+              + Add
+            </button>
+          </div>
 
-        <h1 className="text-2xl font-bold mb-6">Your Products</h1>
+          <h1 className="text-2xl font-bold mb-6">Your Products</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {products.map((p, i) => (
-            <div key={i} className="border-2 border-orange-400 rounded-2xl p-4">
-              <div className="h-44 bg-gray-100 rounded-xl mb-4 overflow-hidden">
-                <img
-                  src={p.productImages?.[0] || "/placeholder.jpg"}
-                  alt={p.productName}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              <h3 className="font-bold text-lg mb-2 text-orange-600">
-                {p.productName}
-              </h3>
-
-              <p className="text-xs text-gray-500">Price</p>
-              <p className="font-bold text-black text-lg mb-2">
-                ₹ {p.productPrice}
-              </p>
-
-              <button
-                onClick={() => handleEdit(i)}
-                className="bg-orange-400 px-4 py-1 rounded-md text-sm font-semibold"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {products.map((p, i) => (
+              <div
+                key={i}
+                className="border-2 border-orange-400 rounded-2xl p-4"
               >
-                Edit
-              </button>
-            </div>
-          ))}
+                <div className="h-44 bg-gray-100 rounded-xl mb-4 overflow-hidden">
+                  <img
+                    src={p.productImages?.[0] || "/placeholder.jpg"}
+                    alt={p.productName}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+
+                <h3 className="font-bold text-lg mb-2 text-orange-600">
+                  {p.productName}
+                </h3>
+
+                <p className="text-xs text-gray-500">Price</p>
+                <p className="font-bold text-black text-lg mb-2">
+                  ₹ {p.productPrice}
+                </p>
+
+                <button
+                  onClick={() => handleEdit(i)}
+                  className="bg-orange-400 px-4 py-1 rounded-md text-sm font-semibold"
+                >
+                  Edit
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
       </div>
     );
   }
@@ -277,42 +280,39 @@ const UploadProductDetails = () => {
       p.stockAvailable &&
       p.productPrice &&
       p.productDescription &&
-      p.productImages.length > 0
+      p.productImages.length > 0,
   );
 
   /* ================================================= */
   /* FORM VIEW */
   /* ================================================= */
   return (
-     <div className="p-8 bg-white rounded-2xl shadow-xl max-w-4xl mx-auto">
-
-
+    <div className="p-8 bg-white rounded-2xl shadow-xl max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-  <h1 className="text-2xl font-bold text-orange-500">
-    Add Product Details
-  </h1>
+        <h1 className="text-2xl font-bold text-orange-500">
+          Add Product Details
+        </h1>
 
-  <div className="flex gap-3">
-    <button
-      onClick={handleAddCard}
-      className="bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold"
-    >
-      + Add
-    </button>
+        <div className="flex gap-3">
+          <button
+            onClick={handleAddCard}
+            className="bg-orange-500 text-white px-6 py-2 rounded-lg font-semibold"
+          >
+            + Add
+          </button>
 
-    <button
-      onClick={() => {
-        fetchProducts();
-        setView("list");
-        setEditIndex(null);
-      }}
-      className="bg-orange-500 p-3 rounded-lg text-white font-bold"
-    >
-      ☰
-    </button>
-  </div>
-</div>
-
+          <button
+            onClick={() => {
+              fetchProducts();
+              setView("list");
+              setEditIndex(null);
+            }}
+            className="bg-orange-500 p-3 rounded-lg text-white font-bold"
+          >
+            ☰
+          </button>
+        </div>
+      </div>
 
       {products.map((product, index) => {
         if (editIndex !== null && editIndex !== index) return null;
@@ -414,8 +414,6 @@ const UploadProductDetails = () => {
 
               {/* Price */}
               <div>
-
-
                 <label className="block mb-2 font-semibold text-sm text-gray-500">
                   Product Price (₹) <span className="text-red-500">*</span>
                 </label>
@@ -468,10 +466,9 @@ const UploadProductDetails = () => {
 
               {/* Images */}
               <div className="lg:col-span-2">
-
-               
                 <label className="block mb-2 font-semibold text-sm text-gray-500">
-                  Upload Images of Product <span className="text-red-500">*</span>
+                  Upload Images of Product{" "}
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="file"
@@ -486,7 +483,6 @@ const UploadProductDetails = () => {
                 <label className="block mb-2 font-semibold text-sm text-gray-500">
                   Product Description <span className="text-red-500">*</span>
                 </label>
-
 
                 <textarea
                   rows={4}
@@ -506,15 +502,14 @@ const UploadProductDetails = () => {
         <button
           onClick={handleSave}
           disabled={!isFormValid}
-          className={`px-12 py-2 rounded-xl font-bold text-lg transition ${isFormValid
+          className={`px-12 py-2 rounded-xl font-bold text-lg transition ${
+            isFormValid
               ? "bg-orange-600 text-white cursor-pointer"
               : "bg-orange-200 text-white cursor-not-allowed"
-            }`}
+          }`}
         >
           Save
         </button>
-
-
       </div>
     </div>
   );
