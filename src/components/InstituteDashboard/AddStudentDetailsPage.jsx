@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   setDoc,
   doc,
@@ -11,7 +11,7 @@ import { useNavigate } from "react-router-dom";
 
 import { db, secondaryAuth } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
-import { User } from "lucide-react";
+import { User, ChevronDown } from "lucide-react";
 
 /* -------------------- STYLES -------------------- */
 const inputClass =
@@ -25,6 +25,10 @@ export default function AddTrainerDetailsPage() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1);
+
+  const timeRef = useRef(null);
+
+  const [showTimeDropdown, setShowTimeDropdown] = useState(false);
 
   /* -------------------- REFS -------------------- */
   const profileInputRef = useRef(null);
@@ -154,7 +158,7 @@ export default function AddTrainerDetailsPage() {
     setFormData((prev) => ({
       ...prev,
       category: selectedCategory,
-      subCategory: "", // reset sub-category
+      subCategory: "",
     }));
 
     setAvailableSubCategories(subCategoryMap[selectedCategory] || []);
@@ -187,8 +191,6 @@ export default function AddTrainerDetailsPage() {
     aadharFiles: [],
   });
 
-  /* -------------------- CLOUDINARY UPLOAD -------------------- */
-
   /* -------------------- UPLOAD HANDLERS -------------------- */
 
   const handleAadharUpload = (e) => {
@@ -213,7 +215,6 @@ export default function AddTrainerDetailsPage() {
 
   /* -------------------- VALIDATION -------------------- */
   const validateStep = () => {
-    // STEP 1 validation
     if (step === 1) {
       return Boolean(
         formData.firstName &&
@@ -231,7 +232,6 @@ export default function AddTrainerDetailsPage() {
       );
     }
 
-    // STEP 2 validation
     if (step === 2) {
       return Boolean(
         formData.monthlyDate &&
@@ -258,10 +258,6 @@ export default function AddTrainerDetailsPage() {
   };
 
   /* -------------------- SUBMIT -------------------- */
-
-  // 🔐 Auto-generate trainer email (hidden from user)
-  const autoEmailRef = useRef(`customer_${Date.now()}@kridana.com`);
-  const autoEmail = autoEmailRef.current;
 
   const resetForm = () => {
     setFormData({
@@ -303,25 +299,74 @@ export default function AddTrainerDetailsPage() {
     { value: "21:00", label: "09:00 PM" },
     { value: "22:00", label: "10:00 PM" },
   ];
+  /* -------------------- CLOUDINARY UPLOADERS -------------------- */
+
+  const uploadImageToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "kridana_upload"); // same preset
+    try {
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/daiyvial8/image/upload",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.secure_url) throw new Error("Cloudinary upload failed");
+
+      return data.secure_url;
+    } catch (err) {
+      console.error("Cloudinary Error:", err);
+      return "";
+    }
+  };
+
+  const uploadMultipleToCloudinary = async (files) => {
+    const urls = [];
+
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("upload_preset", "kridana_upload");
+
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/daiyvial8/image/upload",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = await res.json();
+
+      if (data.secure_url) {
+        urls.push(data.secure_url);
+      }
+    }
+
+    return urls;
+  };
 
   const handleSubmit = async () => {
-    // ✅ Validate all fields first
     if (!validateStep()) {
       alert("Please fill all required fields");
       return;
     }
 
-    // ✅ Profile image mandatory
     if (!profilePreview) {
       alert("Please upload profile image");
       return;
     }
 
     try {
-      // 🔒 Create auth user
+      // ✅ Create auth user using USER PROVIDED EMAIL
       const cred = await createUserWithEmailAndPassword(
         secondaryAuth,
-        autoEmail,
+        formData.email,
         DEFAULT_PASSWORD,
       );
 
@@ -329,20 +374,44 @@ export default function AddTrainerDetailsPage() {
 
       console.log("FORM DATA BEFORE SAVE", formData);
 
-      // ✅ Save to InstituteCustomers collection
       const { aadharFiles, ...rest } = formData;
+
+      /* ==============================
+       🔹 CLOUDINARY UPLOADS
+    ============================== */
+
+      // Profile Image Upload
+      const profileFile = profileInputRef.current?.files?.[0];
+      let profileImageUrl = "";
+
+      if (profileFile) {
+        profileImageUrl = await uploadImageToCloudinary(profileFile);
+      }
+
+      // Aadhaar Upload (Front + Back)
+      let aadharUrls = [];
+      if (aadharFiles?.length) {
+        aadharUrls = await uploadMultipleToCloudinary(aadharFiles);
+      }
+
+      /* ==============================
+       🔹 FIREBASE SAVE (URLS ONLY)
+    ============================== */
 
       await setDoc(doc(db, "students", customerUid), {
         ...rest,
-        aadharFilesCount: aadharFiles.length, // optional
-        profileImageUrl: profilePreview,
+        aadharFilesCount: aadharFiles.length,
+
+        // ✅ Cloudinary URLs
+        profileImageUrl: profileImageUrl,
+        aadharUrls: aadharUrls,
+
         customerUid,
         instituteId: user.uid,
         role: "customer",
         createdAt: serverTimestamp(),
       });
 
-      // ✅ Add customer UID inside institute doc
       await updateDoc(doc(db, "institutes", user.uid), {
         customers: arrayUnion(customerUid),
       });
@@ -355,6 +424,16 @@ export default function AddTrainerDetailsPage() {
     }
   };
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (timeRef.current && !timeRef.current.contains(e.target)) {
+        setShowTimeDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   /* -------------------- UI -------------------- */
   return (
     <div className="min-h-screen flex justify-center bg-white py-10">
@@ -583,21 +662,47 @@ export default function AddTrainerDetailsPage() {
               <label className="text-sm font-semibold mb-2">
                 Select Timings*
               </label>
-              <select
-                className={inputClass}
-                value={formData.timings}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, timings: e.target.value }))
-                }
-              >
-                <option value="">Select Time</option>
+              <div ref={timeRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowTimeDropdown(!showTimeDropdown)}
+                  className={`${inputClass} w-full flex items-center justify-between`}
+                >
+                  <span>
+                    {formData.timings
+                      ? timeSlots.find((t) => t.value === formData.timings)
+                          ?.label
+                      : "Select Time"}
+                  </span>
 
-                {timeSlots.map((slot) => (
-                  <option key={slot.value} value={slot.value}>
-                    {slot.label}
-                  </option>
-                ))}
-              </select>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${
+                      showTimeDropdown ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {showTimeDropdown && (
+                  <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400">
+                    {timeSlots.map((slot) => (
+                      <div
+                        key={slot.value}
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            timings: slot.value,
+                          }));
+                          setShowTimeDropdown(false);
+                        }}
+                        className="px-4 py-2 hover:bg-blue-100 cursor-pointer"
+                      >
+                        {slot.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Row 6 */}

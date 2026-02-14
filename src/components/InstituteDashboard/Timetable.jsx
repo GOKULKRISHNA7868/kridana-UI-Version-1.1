@@ -65,7 +65,7 @@ export default function ClassTime() {
     day: "",
     time: "09:00",
     category: "",
-    batchNumber: "",
+    session: "",
     trainerId: "",
     students: [],
   });
@@ -113,7 +113,7 @@ export default function ClassTime() {
     if (
       !form.category ||
       !form.trainerId ||
-      !form.batchNumber ||
+      !form.session ||
       form.students.length === 0 ||
       !form.day
     ) {
@@ -126,13 +126,13 @@ export default function ClassTime() {
         s.viewMode === viewMode &&
         s.day === form.day &&
         s.time === form.time &&
-        s.batchNumber === form.batchNumber &&
+        s.session === form.session &&
         s.id !== editId,
     );
 
     if (batchConflict) {
       alert(
-        `Batch ${form.batchNumber} already has a class on ${form.day} at ${form.time}`,
+        `Session ${form.session} already has a class on ${form.day} at ${form.time}`,
       );
       return;
     }
@@ -158,7 +158,7 @@ export default function ClassTime() {
       day: form.day, // Mon / 1 / Jan
       time: form.time,
       category: form.category,
-      batchNumber: form.batchNumber,
+      session: form.session,
       trainerId: trainer.id,
       trainerName: trainer.firstName,
       students: form.students,
@@ -183,7 +183,7 @@ export default function ClassTime() {
       day: "",
       time: "09:00",
       category: "",
-      batchNumber: "",
+      session: "",
       trainerId: "",
       students: [],
     });
@@ -254,7 +254,7 @@ export default function ClassTime() {
                       day,
                       time,
                       category: "",
-                      batchNumber: "",
+                      session: "",
                       trainerId: "",
                       students: [],
                     });
@@ -271,7 +271,7 @@ export default function ClassTime() {
                           day: s.day,
                           time: s.time,
                           category: s.category,
-                          batchNumber: s.batchNumber,
+                          session: s.session,
                           trainerId: s.trainerId,
                           students: s.students || [],
                         });
@@ -281,7 +281,7 @@ export default function ClassTime() {
                     >
                       <div className="font-semibold">{s.category}</div>
                       <div className="text-gray-600 dark:text-gray-300">
-                        Batch {s.batchNumber} • {s.trainerName}
+                        {s.session} Session • {s.trainerName}
                       </div>
                     </div>
                   ))}
@@ -309,21 +309,19 @@ export default function ClassTime() {
 
             <select
               className="w-full border p-2 bg-transparent"
-              value={form.batchNumber}
+              value={form.session}
               onChange={(e) =>
                 setForm({
                   ...form,
-                  batchNumber: e.target.value,
+                  session: e.target.value,
                   students: [],
                 })
               }
             >
-              <option value="">Select Batch</option>
-              {[...new Set(students.map((s) => s.batchNumber))].map((b) => (
-                <option key={b} value={b}>
-                  {b}
-                </option>
-              ))}
+              <option value="">Sessions</option>
+              <option>Morning</option>
+              <option>Afternoon</option>
+              <option>Evening</option>
             </select>
 
             <select
@@ -353,7 +351,7 @@ export default function ClassTime() {
               }
             >
               {students
-                .filter((s) => s.batchNumber === form.batchNumber)
+                .filter((s) => s.sessions === form.session)
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.firstName}

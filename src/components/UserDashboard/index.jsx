@@ -25,7 +25,7 @@ import TrainerStudentsFee from "./TrainerStudentsFee";
 import MyOders from "./MyOders";
 import BookedDemo from "./BookedDemo";
 import Payslips from "./Payslips";
-
+import Reports from "./Reports";
 /* =============================
    SIDEBAR ITEMS
 ============================= */
@@ -35,6 +35,7 @@ const studentSidebarItems = [
   "My Attendance",
   "Fees Details",
   "MyOders",
+  "Reports",
   "Log Out",
 ];
 
@@ -222,6 +223,8 @@ const UserDashboard = () => {
         return <BookedDemo />;
       case "Payslips":
         return <Payslips />;
+      case "Reports":
+        return <Reports />;
       default:
         return null;
     }

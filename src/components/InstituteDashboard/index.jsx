@@ -24,6 +24,7 @@ import Orders from "./Orders";
 import DemoClasses from "./DemoClasses";
 import InstituteBookedDemos from "./InstituteBookedDemos";
 import Reelsdata from "./Reelsdata";
+import MyAccountPage from "./MyAccountPage";
 const sidebarItems = [
   "Home",
   "Edit Profile",
@@ -38,11 +39,12 @@ const sidebarItems = [
   "Add Customer Details",
   "Performance Reports",
   "Anyalitics",
-  "Orders",
-  "Sell Sports Material",
-  "Upload Product Details",
+  //"Orders",
+  //"Sell Sports Material",
+  //"Upload Product Details",
   "Inbox",
-  "Shop",
+  //"Shop",
+  "My Account",
   "Reports",
   "Payment Details",
   "Terms & Conditions",
@@ -195,6 +197,8 @@ const InstituteDashboard = () => {
         return <PerformanceReports />;
       case "Anyalitics":
         return <Reelsdata />;
+      case "My Account":
+        return <MyAccountPage setActiveMenu={setActiveMenu} />;
 
       default:
         return (

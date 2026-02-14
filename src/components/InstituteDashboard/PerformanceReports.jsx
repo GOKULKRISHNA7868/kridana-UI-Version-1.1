@@ -1,8 +1,3 @@
-// Full React Page: Student Performance Report
-// TailwindCSS Version + Attendance Auto Fetch + Auto Average + Firebase Save
-// DEBUG VERSION with console logs
-// UI EXACTLY same (no visual changes)
-
 import React, { useEffect, useState } from "react";
 import { db, auth } from "../../firebase";
 import {
@@ -123,6 +118,7 @@ const subCategoryMap = {
     "Creative & Kids Dance",
   ],
 };
+
 export default function StudentPerformanceReport() {
   const [students, setStudents] = useState([]);
   const [filteredStudents, setFilteredStudents] = useState([]);
@@ -146,6 +142,18 @@ export default function StudentPerformanceReport() {
     discipline: "",
   });
 
+  /* 🔽 NEW STATE ONLY */
+  const [showPhysicalFitness, setShowPhysicalFitness] = useState(false);
+
+  /* 🔽 NEW STATE (LOGIC ONLY, NO UI CHANGE) */
+  const [physicalFitness, setPhysicalFitness] = useState({
+    speed: { value: "", observation: "" },
+    strength: { value: "", observation: "" },
+    flexibility: { value: "", observation: "" },
+    stamina: { value: "", observation: "" },
+    agility: { value: "", observation: "" },
+  });
+
   useEffect(() => {
     console.log("[INIT] Component Mounted");
     fetchInstituteStudents();
@@ -167,29 +175,24 @@ export default function StudentPerformanceReport() {
       console.log("[AUTH USER]", user?.uid);
       if (!user) return;
 
-      const instRef = doc(db, "institutes", user.uid);
-      console.log("[INSTITUTE REF]", instRef.path);
+      console.log("[FETCH MODE] instituteId based student fetch");
 
-      const instSnap = await getDoc(instRef);
-      console.log("[INSTITUTE SNAP EXISTS]", instSnap.exists());
+      const q = query(
+        collection(db, "students"),
+        where("instituteId", "==", user.uid),
+      );
 
-      if (!instSnap.exists()) return;
+      const snap = await getDocs(q);
 
-      const studentIds = instSnap.data().students || [];
-      console.log("[STUDENT IDS]", studentIds);
-
-      const studentDocs = await getDocs(collection(db, "students"));
-      console.log("[ALL STUDENTS COUNT]", studentDocs.size);
+      console.log("[INSTITUTE STUDENTS COUNT]", snap.size);
 
       const list = [];
-      studentDocs.forEach((d) => {
-        if (studentIds.includes(d.id)) {
-          console.log("[MATCHED STUDENT]", d.id);
-          list.push({ id: d.id, ...d.data() });
-        }
+      snap.forEach((d) => {
+        console.log("[STUDENT FOUND]", d.id, d.data());
+        list.push({ id: d.id, ...d.data() });
       });
 
-      console.log("[INSTITUTE STUDENTS FINAL]", list);
+      console.log("[FINAL STUDENT LIST]", list);
       setStudents(list);
     } catch (err) {
       console.error("[ERROR fetchInstituteStudents]", err);
@@ -217,31 +220,19 @@ export default function StudentPerformanceReport() {
   const fetchAttendance = async () => {
     try {
       const user = auth.currentUser;
-      console.log("[FETCH ATTENDANCE] user", user?.uid);
-      console.log("[FETCH ATTENDANCE] student", selectedStudent);
-      console.log("[FETCH ATTENDANCE] month", selectedMonth);
-
       if (!user || !selectedStudent) return;
 
       const start = dayjs(selectedMonth).startOf("month").format("YYYY-MM-DD");
       const end = dayjs(selectedMonth).endOf("month").format("YYYY-MM-DD");
 
-      console.log("[DATE RANGE]", start, end);
-
       const colPath = `institutes/${user.uid}/attendance`;
-      console.log("[ATTENDANCE COLLECTION PATH]", colPath);
 
-      // 🔥 NO QUERY FILTERS (NO INDEX REQUIRED)
       const snap = await getDocs(collection(db, colPath));
-
-      console.log("[TOTAL ATT DOCS]", snap.size);
 
       const records = [];
 
       snap.forEach((d) => {
         const data = d.data();
-        console.log("[RAW ATT DOC]", d.id, data);
-
         if (
           data.studentId === selectedStudent &&
           data.date >= start &&
@@ -251,10 +242,7 @@ export default function StudentPerformanceReport() {
         }
       });
 
-      console.log("[FILTERED RECORDS]", records);
-
       if (records.length === 0) {
-        console.warn("[NO ATTENDANCE DATA]");
         setAttendancePercent(null);
         setAttendanceStats({ total: 0, present: 0 });
         setMetrics((prev) => ({ ...prev, attendance: "No Data" }));
@@ -268,15 +256,6 @@ export default function StudentPerformanceReport() {
 
       const percent = ((present / total) * 100).toFixed(2);
 
-      console.log(
-        "[ATT CALC] total=",
-        total,
-        "present=",
-        present,
-        "percent=",
-        percent,
-      );
-
       setAttendanceStats({ total, present });
       setAttendancePercent(percent);
       setMetrics((prev) => ({ ...prev, attendance: `${percent}%` }));
@@ -288,16 +267,11 @@ export default function StudentPerformanceReport() {
   const handleSave = async () => {
     try {
       const user = auth.currentUser;
-      console.log("[SAVE] user", user?.uid);
-      console.log("[SAVE] student", selectedStudent);
-      console.log("[SAVE] month", selectedMonth);
-
       if (!user || !selectedStudent) return;
 
       const monthKey = dayjs(selectedMonth).format("YYYY-MM");
 
       const savePath = `institutes/${user.uid}/performancestudents`;
-      console.log("[SAVE PATH]", savePath);
 
       await addDoc(collection(db, savePath), {
         studentId: selectedStudent,
@@ -307,6 +281,16 @@ export default function StudentPerformanceReport() {
         attendance: attendancePercent,
         attendanceStats,
         metrics,
+
+        /* ✅ PHYSICAL FITNESS SAVED */
+        physicalFitness: {
+          speed: physicalFitness.speed,
+          strength: physicalFitness.strength,
+          flexibility: physicalFitness.flexibility,
+          stamina: physicalFitness.stamina,
+          agility: physicalFitness.agility,
+        },
+
         createdAt: serverTimestamp(),
         createdBy: user.uid,
       });
@@ -317,7 +301,6 @@ export default function StudentPerformanceReport() {
       console.error("[ERROR SAVE]", err);
     }
   };
-
   return (
     <div className="min-h-screen bg-white p-4 md:p-8">
       {/* HEADER */}
@@ -451,9 +434,70 @@ export default function StudentPerformanceReport() {
 
       {/* PHYSICAL FITNESS */}
       <div className="mt-6">
-        <div className="bg-slate-800 text-white px-4 py-3 rounded-lg font-semibold">
-          Physical Fitness
+        <div
+          onClick={() => setShowPhysicalFitness(!showPhysicalFitness)}
+          className="bg-slate-800 text-white px-4 py-3 rounded-lg font-semibold flex justify-between items-center cursor-pointer"
+        >
+          <span>Physical Fitness</span>
+          <span className="text-xl">{showPhysicalFitness ? "▲" : "▼"}</span>
         </div>
+
+        {showPhysicalFitness && (
+          <div className="mt-4 space-y-4">
+            {["Speed", "Strength", "Flexibility", "Stamina", "Agility"].map(
+              (item, i) => (
+                <div
+                  key={i}
+                  className="border border-orange-200 rounded-xl p-4 bg-orange-50"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <p className="font-semibold text-orange-500">{item}</p>
+                      <p className="text-xs text-gray-500">
+                        Rate 1-10 or add custom value
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-semibold">Measured Value</p>
+                      <input
+                        className="w-full mt-2 p-2 border border-orange-300 rounded-lg bg-white"
+                        placeholder="Value"
+                        value={physicalFitness[item.toLowerCase()]?.value || ""}
+                        onChange={(e) =>
+                          setPhysicalFitness((prev) => ({
+                            ...prev,
+                            [item.toLowerCase()]: {
+                              ...prev[item.toLowerCase()],
+                              value: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      ...
+                      <input
+                        className="w-full mt-2 p-2 border border-orange-300 rounded-lg bg-white"
+                        placeholder="Observation"
+                        value={
+                          physicalFitness[item.toLowerCase()]?.observation || ""
+                        }
+                        onChange={(e) =>
+                          setPhysicalFitness((prev) => ({
+                            ...prev,
+                            [item.toLowerCase()]: {
+                              ...prev[item.toLowerCase()],
+                              observation: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              ),
+            )}
+          </div>
+        )}
       </div>
 
       {/* FOOTER */}

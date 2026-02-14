@@ -13,7 +13,6 @@ import { db, secondaryAuth } from "../../firebase";
 import { useAuth } from "../../context/AuthContext";
 import { User } from "lucide-react";
 
-
 /* -------------------- STYLES -------------------- */
 const inputClass =
   "h-11 px-3 border border-orange-400 rounded-md bg-white outline-none focus:border-2 focus:border-orange-500";
@@ -32,7 +31,7 @@ export default function AddTrainerDetailsPage() {
   const certificateInputRef = useRef(null);
   const aadharInputRef = useRef(null);
 
-   const categories = [
+  const categories = [
     "Martial Arts",
     "Team Ball Sports",
     "Racket Sports",
@@ -139,137 +138,207 @@ export default function AddTrainerDetailsPage() {
     ],
   };
   const [availableSubCategories, setAvailableSubCategories] = useState([]);
-const handleCategoryChange = (e) => {
-  const selectedCategory = e.target.value;
+  const handleCategoryChange = (e) => {
+    const selectedCategory = e.target.value;
 
-  setFormData((prev) => ({
-    ...prev,
-    category: selectedCategory,
-    subCategory: "", // reset sub-category
-  }));
+    setFormData((prev) => ({
+      ...prev,
+      category: selectedCategory,
+      subCategory: "", // reset sub-category
+    }));
 
-  setAvailableSubCategories(subCategoryMap[selectedCategory] || []);
-};
+    setAvailableSubCategories(subCategoryMap[selectedCategory] || []);
+  };
 
-const [profilePreview, setProfilePreview] = useState(null);
-const handleProfileUpload = (e) => {
-  const file = e.target.files[0];
-  if (file) {
-    setProfilePreview(URL.createObjectURL(file));
-  }
-};
+  const [profilePreview, setProfilePreview] = useState(null);
+  const handleProfileUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setProfilePreview(URL.createObjectURL(file));
+    }
+  };
 
   /* -------------------- FORM DATA -------------------- */
-const [formData, setFormData] = useState({
-  firstName: "",
-  lastName: "",
-  designation: "",
-  dateOfBirth: "",
-  category: "",
-  subCategory: "",
-  experience: "",
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    designation: "",
+    dateOfBirth: "",
+    category: "",
+    subCategory: "",
+    experience: "",
 
-  phone: "",
+    phone: "",
+    email: "",
+    monthlySalary: "",
+    lpa: "",
 
-  monthlySalary: "",
-  lpa: "",
+    bankName: "",
+    accountName: "",
+    ifscCode: "",
+    accountNumber: "",
+    pfDetails: "",
+    upiDetails: "",
 
-  bankName: "",
-  accountName: "",
-  ifscCode: "",
-  accountNumber: "",
-  pfDetails: "",
-  upiDetails: "",
-
-  certificates: [],
-  aadharFiles: [],
-});
-
+    certificates: [],
+    aadharFiles: [],
+  });
 
   /* -------------------- CLOUDINARY UPLOAD -------------------- */
+  /* -------------------- CLOUDINARY UPLOAD -------------------- */
 
+  const uploadProfileToCloudinary = async (file) => {
+    const formData = new FormData();
+
+    formData.append("file", file);
+    formData.append("upload_preset", "kridana_upload");
+
+    try {
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/daiyvial8/image/upload",
+        {
+          method: "POST",
+          body: formData,
+        },
+      );
+
+      const data = await res.json();
+
+      if (!data.secure_url) {
+        throw new Error("Cloudinary upload failed");
+      }
+
+      return data.secure_url;
+    } catch (err) {
+      console.error("Cloudinary Upload Error:", err);
+      alert("Image upload failed!");
+      return "";
+    }
+  };
+
+  const uploadCertificatesToCloudinary = async (files) => {
+    const urls = [];
+
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("upload_preset", "kridana_upload");
+
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/daiyvial8/image/upload",
+        {
+          method: "POST",
+          body: fd,
+        },
+      );
+
+      const data = await res.json();
+      urls.push(data.secure_url);
+    }
+
+    return urls;
+  };
+
+  const uploadAadharToCloudinary = async (files) => {
+    const urls = [];
+
+    for (const file of files) {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("upload_preset", "kridana_upload");
+
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/daiyvial8/image/upload",
+        {
+          method: "POST",
+          body: fd,
+        },
+      );
+
+      const data = await res.json();
+      urls.push(data.secure_url);
+    }
+
+    return urls;
+  };
 
   /* -------------------- UPLOAD HANDLERS -------------------- */
 
-
   const handleCertificateChange = (e) => {
-  const newFiles = Array.from(e.target.files);
+    const newFiles = Array.from(e.target.files);
 
-  setFormData((prev) => {
-    const combined = [...prev.certificates, ...newFiles];
+    setFormData((prev) => {
+      const combined = [...prev.certificates, ...newFiles];
 
-    if (combined.length > 3) {
-      alert("Maximum 3 certifications allowed");
-      return prev;
-    }
+      if (combined.length > 3) {
+        alert("Maximum 3 certifications allowed");
+        return prev;
+      }
 
-    return {
-      ...prev,
-      certificates: combined,
-    };
-  });
+      return {
+        ...prev,
+        certificates: combined,
+      };
+    });
 
-  e.target.value = null; // allow reselect
-};
+    e.target.value = null; // allow reselect
+  };
 
+  const handleAadharUpload = (e) => {
+    const newFiles = Array.from(e.target.files);
 
-const handleAadharUpload = (e) => {
-  const newFiles = Array.from(e.target.files);
+    setFormData((prev) => {
+      const combined = [...prev.aadharFiles, ...newFiles];
 
-  setFormData((prev) => {
-    const combined = [...prev.aadharFiles, ...newFiles];
+      if (combined.length > 2) {
+        alert("You can upload only up to 2 Aadhaar images");
+        return prev;
+      }
 
-    if (combined.length > 2) {
-      alert("You can upload only up to 2 Aadhaar images");
-      return prev;
-    }
+      return {
+        ...prev,
+        aadharFiles: combined,
+      };
+    });
 
-    return {
-      ...prev,
-      aadharFiles: combined,
-    };
-  });
-
-  e.target.value = null;
-};
-
-
+    e.target.value = null;
+  };
 
   /* -------------------- VALIDATION -------------------- */
   const validateStep = () => {
     if (step === 1) {
-  return (
-    formData.firstName &&
-    formData.lastName &&
-    formData.designation &&
-    formData.dateOfBirth &&
-    formData.category &&
-    formData.subCategory &&
-    formData.experience &&
-    formData.certificates.length > 0
-  );
-}
+      return (
+        formData.firstName &&
+        formData.lastName &&
+        formData.designation &&
+        formData.dateOfBirth &&
+        formData.category &&
+        formData.subCategory &&
+        formData.experience &&
+        formData.email &&
+        formData.certificates.length > 0
+      );
+    }
 
+    if (step === 2) {
+      if (
+        !formData.bankName ||
+        !formData.accountName ||
+        !formData.accountNumber ||
+        !formData.ifscCode ||
+        !formData.pfDetails
+      ) {
+        alert("Please fill all mandatory bank details");
+        return false;
+      }
 
-if (step === 2) {
-  if (
-    !formData.bankName ||
-    !formData.accountName ||
-    !formData.accountNumber ||
-    !formData.ifscCode ||
-    !formData.pfDetails
-  ) {
-    alert("Please fill all mandatory bank details");
-    return false;
-  }
+      if (formData.aadharFiles.length === 0) {
+        alert("Please upload Aadhaar image(s)");
+        return false;
+      }
 
-  if (formData.aadharFiles.length === 0) {
-    alert("Please upload Aadhaar image(s)");
-    return false;
-  }
-
-  return true;
-}
+      return true;
+    }
   };
 
   /* -------------------- NAV -------------------- */
@@ -290,63 +359,68 @@ if (step === 2) {
 
   // 🔐 Auto-generate trainer email (hidden from user)
   const autoEmail = `trainer_${Date.now()}@kridana.com`;
-const resetForm = () => {
-  setFormData({
-    firstName: "",
-    lastName: "",
-    designation: "",
-    dateOfBirth: "",
-    category: "",
-    subCategory: "",
-    experience: "",
-    phone: "",
-    monthlySalary: "",
-    lpa: "",
-    bankName: "",
-    accountName: "",
-    ifscCode: "",
-    accountNumber: "",
-    pfDetails: "",
-    upiDetails: "",
-    certificates: [],
-    aadharFiles: [],
-  });
+  const resetForm = () => {
+    setFormData({
+      firstName: "",
+      lastName: "",
+      designation: "",
+      dateOfBirth: "",
+      category: "",
+      subCategory: "",
+      experience: "",
+      phone: "",
+      monthlySalary: "",
+      lpa: "",
+      bankName: "",
+      accountName: "",
+      ifscCode: "",
+      accountNumber: "",
+      pfDetails: "",
+      upiDetails: "",
+      certificates: [],
+      aadharFiles: [],
+    });
 
-  setProfilePreview(null);
-  setAvailableSubCategories([]);
-  setStep(1);
-};
-
+    setProfilePreview(null);
+    setAvailableSubCategories([]);
+    setStep(1);
+  };
 
   const handleSubmit = async () => {
- if (!profilePreview) {
-  alert("Please upload profile image");
-  return;
-}
-
-    // 🔒 REQUIRED FOR AUTH
-
+    if (!profilePreview) {
+      alert("Please upload profile image");
+      return;
+    }
 
     try {
+      // AUTH
       const cred = await createUserWithEmailAndPassword(
         secondaryAuth,
-        autoEmail,
-        DEFAULT_PASSWORD
+        formData.email,
+        DEFAULT_PASSWORD,
       );
 
-
       const trainerUid = cred.user.uid;
+
       console.log("FORM DATA BEFORE SAVE", formData);
 
-// ✅ Upload certificates to Cloudinary (same logic as InstituteSignup)
-const safeData = {
-  ...formData,
-certificates: formData.certificates.map(f => f.name),
-aadharFiles: formData.aadharFiles.map(f => f.name),
+      // ✅ CLOUDINARY UPLOADS
+      const profileUrl = await uploadProfileToCloudinary(
+        profileInputRef.current.files[0],
+      );
+      const certificateUrls = await uploadCertificatesToCloudinary(
+        formData.certificates,
+      );
+      const aadharUrls = await uploadAadharToCloudinary(formData.aadharFiles);
 
-  profileImageUrl: profilePreview || "",
-};
+      const safeData = {
+        ...formData,
 
+        // 🔁 replace local files with cloudinary urls
+        certificates: certificateUrls,
+        aadharFiles: aadharUrls,
+        profileImageUrl: profileUrl || "",
+      };
 
       await setDoc(doc(db, "InstituteTrainers", trainerUid), {
         ...safeData,
@@ -356,59 +430,54 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
         createdAt: serverTimestamp(),
       });
 
-
       await updateDoc(doc(db, "institutes", user.uid), {
         trainers: arrayUnion(trainerUid),
       });
 
       alert("Trainer created successfully");
       resetForm();
-
     } catch (err) {
       alert(err.message);
     }
   };
 
-
   /* -------------------- UI -------------------- */
   return (
     <div className="min-h-screen flex justify-center bg-white py-10">
       <div className="w-full max-w-5xl p-2">
-
         {/* HEADER */}
         <div className="flex items-center justify-between mb-10">
           {/* PROFILE */}
-{/* LEFT : Upload Profile */}
-<div className="flex flex-col items-center mt-6">
-  <div
-    onClick={() => profileInputRef.current.click()}
-    className="w-24 h-24 rounded-full bg-orange-200 flex items-center justify-center cursor-pointer overflow-hidden"
-  >
-    {profilePreview ? (
-      <img
-        src={profilePreview}
-        alt="profile"
-        className="w-full h-full object-cover"
-      />
-    ) : (
-      <User className="w-10 h-10 text-orange-600" />
-    )}
-  </div>
+          {/* LEFT : Upload Profile */}
+          <div className="flex flex-col items-center mt-6">
+            <div
+              onClick={() => profileInputRef.current.click()}
+              className="w-24 h-24 rounded-full bg-orange-200 flex items-center justify-center cursor-pointer overflow-hidden"
+            >
+              {profilePreview ? (
+                <img
+                  src={profilePreview}
+                  alt="profile"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-10 h-10 text-orange-600" />
+              )}
+            </div>
 
-  {/* TEXT BELOW CIRCLE */}
-  <span className="text-sm text-orange-500 font-medium mt-2">
-    Upload Profile
-  </span>
+            {/* TEXT BELOW CIRCLE */}
+            <span className="text-sm text-orange-500 font-medium mt-2">
+              Upload Profile
+            </span>
 
-  <input
-    type="file"
-    ref={profileInputRef}
-    className="hidden"
-    accept="image/*"
-    onChange={handleProfileUpload}
-  />
-</div>
-
+            <input
+              type="file"
+              ref={profileInputRef}
+              className="hidden"
+              accept="image/*"
+              onChange={handleProfileUpload}
+            />
+          </div>
 
           {/* TITLE */}
           <div className="flex-1 flex flex-col items-center">
@@ -417,13 +486,13 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
             </h2>
             <p className="mt-4">Step {step} to 2</p>
 
-
             <div className="flex gap-4 mt-4 w-[580px]">
               {[1, 2].map((s) => (
                 <div
                   key={s}
-                  className={`h-3 flex-1 rounded-full ${step >= s ? "bg-orange-500" : "bg-gray-300"
-                    }`}
+                  className={`h-3 flex-1 rounded-full ${
+                    step >= s ? "bg-orange-500" : "bg-gray-300"
+                  }`}
                 />
               ))}
             </div>
@@ -435,7 +504,6 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
         {/* STEP 1 */}
         {step === 1 && (
           <div className="grid grid-cols-2 gap-x-10 gap-y-6">
-
             {/* Full Name */}
             <div className="flex flex-col">
               <label className="text-sm font-semibold mb-2">
@@ -492,6 +560,19 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
                 }
               />
             </div>
+            <div className="flex flex-col">
+              <label className="text-sm font-semibold mb-2">
+                Email<span className="text-red-500">*</span>
+              </label>
+              <input
+                type="email"
+                className={inputClass}
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+              />
+            </div>
 
             {/* Select Category */}
             <div className="flex flex-col">
@@ -499,18 +580,17 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
                 Select Category<span className="text-red-500">*</span>
               </label>
               <select
-  className={inputClass}
-  value={formData.category}
-  onChange={handleCategoryChange}
->
-  <option value="">Select Category</option>
-  {categories.map((cat) => (
-    <option key={cat} value={cat}>
-      {cat}
-    </option>
-  ))}
-</select>
-
+                className={inputClass}
+                value={formData.category}
+                onChange={handleCategoryChange}
+              >
+                <option value="">Select Category</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Select Sub Category */}
@@ -518,27 +598,26 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
               <label className="text-sm font-semibold mb-2">
                 Select Sub – Category<span className="text-red-500">*</span>
               </label>
-             <select
-  className={inputClass}
-  value={formData.subCategory}
-  disabled={!formData.category}
-  onChange={(e) =>
-    setFormData({ ...formData, subCategory: e.target.value })
-  }
->
-  <option value="">
-    {formData.category
-      ? "Select Sub Category"
-      : "Select Category First"}
-  </option>
+              <select
+                className={inputClass}
+                value={formData.subCategory}
+                disabled={!formData.category}
+                onChange={(e) =>
+                  setFormData({ ...formData, subCategory: e.target.value })
+                }
+              >
+                <option value="">
+                  {formData.category
+                    ? "Select Sub Category"
+                    : "Select Category First"}
+                </option>
 
-  {availableSubCategories.map((sub) => (
-    <option key={sub} value={sub}>
-      {sub}
-    </option>
-  ))}
-</select>
-
+                {availableSubCategories.map((sub) => (
+                  <option key={sub} value={sub}>
+                    {sub}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Experience */}
@@ -558,20 +637,20 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
             {/* Upload Certification */}
             <div className="flex flex-col relative">
               <label className="text-sm font-semibold mb-2">
-                Upload Certification<span className="text-red-500">*</span> / License Number
+                Upload Certification<span className="text-red-500">*</span> /
+                License Number
               </label>
 
               <input
-  readOnly
-  value={
-    formData.certificates.length
-      ? `${formData.certificates.length}/3 file(s) selected`
-      : ""
-  }
-  placeholder="Upload certification images"
-  className={`${inputClass} pr-12`}
-/>
-
+                readOnly
+                value={
+                  formData.certificates.length
+                    ? `${formData.certificates.length}/3 file(s) selected`
+                    : ""
+                }
+                placeholder="Upload certification images"
+                className={`${inputClass} pr-12`}
+              />
 
               <button
                 type="button"
@@ -589,23 +668,18 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
                 ref={certificateInputRef}
                 className="hidden"
                 onChange={handleCertificateChange}
-
               />
             </div>
-
           </div>
         )}
 
-
         {step === 2 && (
           <div className="mt-6">
-
             <p className="text-center text-red-500 font-medium mb-8">
               You can add your Bank Details
             </p>
 
             <div className="grid grid-cols-2 gap-x-10 gap-y-6">
-
               {/* Bank Name */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold mb-2">
@@ -665,7 +739,8 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
               {/* PF */}
               <div className="flex flex-col">
                 <label className="text-sm font-semibold mb-2">
-                  PF Details (Provident Fund)<span className="text-red-500">*</span>
+                  PF Details (Provident Fund)
+                  <span className="text-red-500">*</span>
                 </label>
                 <input
                   className={inputClass}
@@ -691,79 +766,78 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
               </div>
 
               {/* AADHAR */}
-{/* Aadhaar Upload */}
-<div className="col-span-2 flex flex-col">
-  <label className="text-sm font-semibold mb-2">
-    Aadhaar Front & Back Photos<span className="text-red-500">*</span>
-  </label>
+              {/* Aadhaar Upload */}
+              <div className="col-span-2 flex flex-col">
+                <label className="text-sm font-semibold mb-2">
+                  Aadhaar Front & Back Photos
+                  <span className="text-red-500">*</span>
+                </label>
 
-  <div className="relative w-full">
-    <input
-      readOnly
-      value={
-        formData.aadharFiles.length
-          ? `${formData.aadharFiles.length}/2 image(s) selected`
-          : ""
-      }
-      placeholder="Upload Aadhaar images"
-      className={`${inputClass} w-full pr-12`}
-    />
+                <div className="relative w-full">
+                  <input
+                    readOnly
+                    value={
+                      formData.aadharFiles.length
+                        ? `${formData.aadharFiles.length}/2 image(s) selected`
+                        : ""
+                    }
+                    placeholder="Upload Aadhaar images"
+                    className={`${inputClass} w-full pr-12`}
+                  />
 
-    <button
-      type="button"
-      onClick={() => aadharInputRef.current.click()}
-      className="absolute right-3 top-1/2 -translate-y-1/2
+                  <button
+                    type="button"
+                    onClick={() => aadharInputRef.current.click()}
+                    className="absolute right-3 top-1/2 -translate-y-1/2
         w-8 h-8 rounded-full border border-orange-500
         text-orange-500 flex items-center justify-center bg-white"
-    >
-      +
-    </button>
+                  >
+                    +
+                  </button>
 
-    <input
-      type="file"
-      ref={aadharInputRef}
-      multiple
-      accept="image/*"
-      onChange={handleAadharUpload}
-      className="hidden"
-    />
-  </div>
+                  <input
+                    type="file"
+                    ref={aadharInputRef}
+                    multiple
+                    accept="image/*"
+                    onChange={handleAadharUpload}
+                    className="hidden"
+                  />
+                </div>
 
-  <p className="text-xs text-gray-500 mt-1">
-    You can upload 1 or 2 images (maximum 2)
-  </p>
-</div>
-
-
+                <p className="text-xs text-gray-500 mt-1">
+                  You can upload 1 or 2 images (maximum 2)
+                </p>
+              </div>
             </div>
 
             {/* ACTION BUTTONS */}
-<div className="flex justify-between items-center mt-12">
-  <button
-    type="button"
-    onClick={handleBack}
-    className="text-orange-500 font-medium"
-  >
-    Back
-  </button>
+            <div className="flex justify-between items-center mt-12">
+              <button
+                type="button"
+                onClick={handleBack}
+                className="text-orange-500 font-medium"
+              >
+                Back
+              </button>
 
-  <div className="flex gap-6">
-    <button
-      type="button"
-      onClick={resetForm}
-      className="text-orange-500 font-semibold"
-    >
-      Add More
-    </button>
+              <div className="flex gap-6">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="text-orange-500 font-semibold"
+                >
+                  Add More
+                </button>
 
-    <button
-      onClick={handleSubmit}
-      className="bg-orange-500 px-10 py-3 rounded-md font-semibold text-white"
-    >
-      Save
-    </button>
-  </div>
-</div>
+                <button
+                  onClick={handleSubmit}
+                  className="bg-orange-500 px-10 py-3 rounded-md font-semibold text-white"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -787,8 +861,6 @@ aadharFiles: formData.aadharFiles.map(f => f.name),
             </button>
           </div>
         )}
-
-
       </div>
     </div>
   );

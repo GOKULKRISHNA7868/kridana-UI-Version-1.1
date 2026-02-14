@@ -63,6 +63,7 @@ import AvailableDemoClasses from "./pages/AvailableDemoClasses.jsx";
 import "./index.css";
 import Plans from "./pages/Plans.jsx";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import PaymentAndRefundPolicy from "./pages/PaymentAndRefundPolicy";
 function App() {
   const location = useLocation();
 
@@ -161,6 +162,10 @@ function App() {
               <Route
                 path="/delivery-shipping-policy"
                 element={<DeliveryAndShippingPolicy />}
+              />
+              <Route
+                path="/payment-refund-policy"
+                element={<PaymentAndRefundPolicy />}
               />
 
               {/* SERVICES */}

@@ -181,7 +181,7 @@ const FeesDetailsPage = () => {
           </button>
 
           {showMonthDropdown && (
-            <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md">
+            <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md max-h-48 overflow-y-auto">
               {MONTHS.map((m) => (
                 <div
                   key={m.value}

@@ -17,20 +17,6 @@ import { Search, Download, ChevronDown } from "lucide-react";
 
 const today = new Date().toISOString().split("T")[0];
 
-const MONTHS = [
-  { label: "January", value: "01" },
-  { label: "February", value: "02" },
-  { label: "March", value: "03" },
-  { label: "April", value: "04" },
-  { label: "May", value: "05" },
-  { label: "June", value: "06" },
-  { label: "July", value: "07" },
-  { label: "August", value: "08" },
-  { label: "September", value: "09" },
-  { label: "October", value: "10" },
-  { label: "November", value: "11" },
-  { label: "December", value: "12" },
-];
 const TIME_SLOTS = [
   { value: "09:00", label: "09:00 AM" },
   { value: "10:00", label: "10:00 AM" },
@@ -53,20 +39,17 @@ const SESSIONS = ["Morning", "Afternoon", "Evening"];
 const StudentsAttendancePage = () => {
   const [selectedTime, setSelectedTime] = useState("");
   const timeRef = useRef(null);
-  const monthRef = useRef(null);
 
   const { user, institute } = useAuth();
 
   const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
   const [search, setSearch] = useState("");
-
-  const [selectedMonth, setSelectedMonth] = useState("");
+  const [draftAttendance, setDraftAttendance] = useState({});
 
   const [selectedSession, setSelectedSession] = useState("");
   const [selectedDate, setSelectedDate] = useState(today);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
-  const [showMonthDropdown, setShowMonthDropdown] = useState(false);
 
   const [summary, setSummary] = useState({
     totalStudents: 0,
@@ -92,70 +75,40 @@ const StudentsAttendancePage = () => {
     });
   }, [user, institute]);
 
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (
-        timeRef.current &&
-        !timeRef.current.contains(e.target) &&
-        monthRef.current &&
-        !monthRef.current.contains(e.target)
-      ) {
-        setShowTimeDropdown(false);
-        setShowMonthDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
   // ✅ FIXED SUMMARY + ATTENDANCE COUNT (NO DOUBLE COUNT)
   useEffect(() => {
-    if (!user || !selectedMonth) return;
+    if (!user || !selectedDate || !selectedSession || !selectedTime) {
+      setAttendance({});
+      setDraftAttendance({});
+      return;
+    }
 
-    const monthKey = `${new Date().getFullYear()}-${selectedMonth}`;
+    // ✅ CLEAR instantly when filters change (LIKE EMPLOYEE PAGE)
+    setAttendance({});
+    setDraftAttendance({});
 
     const q = query(
       collection(db, "attendance"),
       where("instituteId", "==", user.uid),
-      where("month", "==", monthKey),
+      where("date", "==", selectedDate),
     );
 
-    return onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, (snap) => {
       const map = {};
 
-      // ONLY count unique student for selected date + session
-      const todayStatusMap = {};
+      snap.docs.forEach((d) => {
+        const data = d.data();
 
-      snap.docs.forEach((docSnap) => {
-        const d = docSnap.data();
-
-        if (!map[d.studentId]) map[d.studentId] = {};
-        map[d.studentId][`${d.date}_${d.session}_${d.time}`] = d.status;
-
-        // Only count for selected date + session
-        if (d.date === selectedDate && d.session === selectedSession) {
-          todayStatusMap[d.studentId] = d.status;
+        if (data.session === selectedSession && data.time === selectedTime) {
+          map[data.studentId] = data.status;
         }
       });
 
-      let presentToday = 0;
-      let absentToday = 0;
-
-      Object.values(todayStatusMap).forEach((status) => {
-        if (status === "present") presentToday++;
-        if (status === "absent") absentToday++;
-      });
-
       setAttendance(map);
-
-      setSummary({
-        totalStudents: students.length,
-        presentToday,
-        absentToday,
-      });
+      setDraftAttendance({ ...map });
     });
-  }, [user, selectedMonth, selectedDate, selectedSession, students.length]);
+    return unsub;
+  }, [user, selectedDate, selectedSession, selectedTime]);
 
   // Filter
   const filteredStudents = useMemo(() => {
@@ -173,6 +126,28 @@ const StudentsAttendancePage = () => {
     });
   }, [students, search, selectedSession, selectedTime]);
 
+  // ✅ CALCULATE SUMMARY
+  // ✅ CALCULATE SUMMARY (LIVE COUNT)
+  useEffect(() => {
+    const total = filteredStudents.length;
+
+    let present = 0;
+    let absent = 0;
+
+    filteredStudents.forEach((student) => {
+      const status = draftAttendance[student.uid];
+
+      if (status === "present") present++;
+      if (status === "absent") absent++;
+    });
+
+    setSummary({
+      totalStudents: total,
+      presentToday: present,
+      absentToday: absent,
+    });
+  }, [filteredStudents, draftAttendance]);
+
   // Pagination
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
@@ -182,48 +157,61 @@ const StudentsAttendancePage = () => {
   }, [filteredStudents, currentPage]);
 
   // Save Attendance
-  const setStudentAttendance = async (student, status) => {
-    const monthKey = selectedDate.slice(0, 7);
-
-    await setDoc(
-      doc(
-        db,
-        "attendance",
-        `${student.uid}_${selectedDate}_${selectedSession}_${selectedTime}`,
-      ),
-      {
-        instituteId: user.uid,
-        studentId: student.uid,
-        session: selectedSession,
-        date: selectedDate,
-        month: monthKey,
-        status: status,
-        createdAt: serverTimestamp(),
-        time: selectedTime,
-      },
-      { merge: true },
+  const saveAttendance = (student, status) => {
+    setDraftAttendance((prev) => ({
+      ...prev,
+      [student.uid]: status,
+    }));
+  };
+  const handleSaveAll = async () => {
+    const promises = Object.entries(draftAttendance).map(
+      ([studentId, status]) =>
+        setDoc(
+          doc(
+            db,
+            "attendance",
+            `${studentId}_${selectedDate}_${selectedSession}_${selectedTime}`,
+          ),
+          {
+            instituteId: user.uid,
+            studentId,
+            session: selectedSession,
+            date: selectedDate,
+            time: selectedTime,
+            status,
+            createdAt: serverTimestamp(),
+          },
+          { merge: true },
+        ),
     );
+
+    await Promise.all(promises);
+
+    alert("Attendance saved ✅");
   };
 
+  const handleCancel = () => {
+    setDraftAttendance({ ...attendance });
+  };
+
+  const hasChanges =
+    JSON.stringify(draftAttendance) !== JSON.stringify(attendance);
+
   // Export CSV
-  const exportData = async () => {
-    const monthKey = `${new Date().getFullYear()}-${selectedMonth}`;
-
-    const q = query(
-      collection(db, "attendance"),
-      where("instituteId", "==", user.uid),
-      where("month", "==", monthKey),
-    );
-
-    const snap = await getDocs(q);
+  // ✅ Export Visible Table Data
+  // ✅ Export Visible Table Data WITH DATE
+  const exportData = () => {
+    if (filteredStudents.length === 0) {
+      alert("No data to export");
+      return;
+    }
 
     let csv = "Student Name,Session,Date,Status\n";
 
-    snap.forEach((docSnap) => {
-      const d = docSnap.data();
-      const student = students.find((s) => s.uid === d.studentId);
+    filteredStudents.forEach((student) => {
+      const status = draftAttendance[student.uid] || "Not Marked";
 
-      csv += `${student?.firstName || ""} ${student?.lastName || ""},${d.session},"${d.date}",${d.status}\n`;
+      csv += `${student.firstName} ${student.lastName},${student.sessions || "-"},${selectedDate},${status}\n`;
     });
 
     const blob = new Blob([csv], { type: "text/csv" });
@@ -231,7 +219,7 @@ const StudentsAttendancePage = () => {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = `attendance_${monthKey}.csv`;
+    a.download = `attendance_${selectedDate}.csv`;
     a.click();
   };
 
@@ -242,43 +230,16 @@ const StudentsAttendancePage = () => {
         <h1 className="text-3xl font-bold text-orange-500 flex items-center gap-2">
           Students Attendance
         </h1>
-
-        <div ref={monthRef} className="relative min-w-[170px]">
-          <button
-            onClick={() => setShowMonthDropdown(!showMonthDropdown)}
-            className="bg-orange-500 text-white rounded-lg px-4 py-3 font-semibold w-full flex items-center justify-between"
-          >
-            <span>
-              {selectedMonth
-                ? MONTHS.find((m) => m.value === selectedMonth)?.label
-                : "Select Month"}
-            </span>
-
-            <ChevronDown
-              size={16}
-              className={`ml-2 transition-transform ${
-                showMonthDropdown ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          {showMonthDropdown && (
-            <div className="absolute z-50 mt-1 w-full bg-white border rounded-lg shadow-md max-h-48 overflow-y-auto">
-              {MONTHS.map((m) => (
-                <div
-                  key={m.value}
-                  onClick={() => {
-                    setSelectedMonth(m.value);
-                    setShowMonthDropdown(false);
-                  }}
-                  className="px-4 py-2 hover:bg-blue-100 cursor-pointer text-black"
-                >
-                  {m.label}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => {
+            setAttendance({});
+            setDraftAttendance({});
+            setSelectedDate(e.target.value);
+          }}
+          className="border bg-orange-500 border-orange-300 rounded-lg px-3 py-2"
+        />
       </div>
 
       {/* SUMMARY */}
@@ -395,10 +356,7 @@ const StudentsAttendancePage = () => {
 
         <div className="bg-white min-h-[300px]">
           {paginatedStudents.map((s, index) => {
-            const currentStatus =
-              attendance[s.uid]?.[
-                `${selectedDate}_${selectedSession}_${selectedTime}`
-              ];
+            const record = draftAttendance[s.uid];
 
             return (
               <div
@@ -420,8 +378,8 @@ const StudentsAttendancePage = () => {
                 <div className="flex justify-center">
                   <input
                     type="checkbox"
-                    checked={currentStatus === "present"}
-                    onChange={() => setStudentAttendance(s, "present")}
+                    checked={record === "present"}
+                    onChange={() => saveAttendance(s, "present")}
                     className="w-5 h-5"
                   />
                 </div>
@@ -429,8 +387,8 @@ const StudentsAttendancePage = () => {
                 <div className="flex justify-center">
                   <input
                     type="checkbox"
-                    checked={currentStatus === "absent"}
-                    onChange={() => setStudentAttendance(s, "absent")}
+                    checked={record === "absent"}
+                    onChange={() => saveAttendance(s, "absent")}
                     className="w-5 h-5"
                   />
                 </div>
@@ -438,6 +396,24 @@ const StudentsAttendancePage = () => {
             );
           })}
         </div>
+      </div>
+      <div className="flex justify-end gap-4 mt-6">
+        <button
+          onClick={handleCancel}
+          className="border border-gray-400 px-5 py-2 rounded-md"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handleSaveAll}
+          disabled={!hasChanges}
+          className={`px-5 py-2 rounded-md text-white ${
+            hasChanges ? "bg-orange-500" : "bg-gray-400 cursor-not-allowed"
+          }`}
+        >
+          Save
+        </button>
       </div>
 
       <Pagination

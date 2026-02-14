@@ -80,7 +80,7 @@ const Navbar = () => {
           );
 
           if (studentSnap.exists()) {
-            setProfileImage(studentSnap.data().studentPhotoUrl || "");
+            setProfileImage(studentSnap.data().profileImageUrl || "");
           }
         }
       }
@@ -117,7 +117,6 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-
   /* ================= CLICK OUTSIDE HANDLER ================= */
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -129,7 +128,6 @@ const Navbar = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -223,8 +221,9 @@ const Navbar = () => {
               >
                 Categories
                 <svg
-                  className={`w-4 h-4 transition-transform ${serviceOpen ? "rotate-180" : ""
-                    }`}
+                  className={`w-4 h-4 transition-transform ${
+                    serviceOpen ? "rotate-180" : ""
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -238,14 +237,14 @@ const Navbar = () => {
                 </svg>
               </button>
 
-             {serviceOpen && (
-  <div className="absolute top-12 left-0 w-72 bg-white shadow-lg rounded-2xl border border-gray-200 py-2 z-50">
+              {serviceOpen && (
+                <div className="absolute top-12 left-0 w-72 bg-white shadow-lg rounded-2xl border border-gray-200 py-2 z-50">
                   {serviceTypes.map((service) => (
                     <NavLink
                       key={service.path}
                       to={service.path}
                       onClick={() => setServiceOpen(false)}
-                     className="block px-6 py-3 text-[15px] text-gray-600 font-normal hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-all duration-150"
+                      className="block px-6 py-3 text-[15px] text-gray-600 font-normal hover:bg-orange-50 hover:text-orange-600 rounded-lg transition-all duration-150"
                     >
                       {service.name}
                     </NavLink>
@@ -260,65 +259,63 @@ const Navbar = () => {
 
             {/* USER ACTIONS (profile + new dropdown side by side) */}
             {/* PROFILE + ARROW DROPDOWN */}
-{/* PROFILE + SMALL ARROW (tight like Categories) */}
-{auth.currentUser && (
-  <div className="relative" ref={userDropdownRef}>
-    <div className="flex items-center">
+            {/* PROFILE + SMALL ARROW (tight like Categories) */}
+            {auth.currentUser && (
+              <div className="relative" ref={userDropdownRef}>
+                <div className="flex items-center">
+                  {/* PROFILE ICON (no click) */}
+                  {profileImage ? (
+                    <img
+                      src={profileImage}
+                      alt="Profile"
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-7 h-7 text-gray-700" />
+                  )}
 
-      {/* PROFILE ICON (no click) */}
-      {profileImage ? (
-        <img
-          src={profileImage}
-          alt="Profile"
-          className="w-8 h-8 rounded-full object-cover"
-        />
-      ) : (
-        <User className="w-7 h-7 text-gray-700" />
-      )}
+                  {/* SMALL ARROW BUTTON */}
+                  <button
+                    onClick={() => setDropdownOpen(!dropdownOpen)}
+                    className="ml-1 p-1 hover:text-orange-600 transition"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform ${
+                        dropdownOpen ? "rotate-180" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={3}
+                        d="M19 9l-7 7-7-7"
+                      />
+                    </svg>
+                  </button>
+                </div>
 
-      {/* SMALL ARROW BUTTON */}
-      <button
-        onClick={() => setDropdownOpen(!dropdownOpen)}
-        className="ml-1 p-1 hover:text-orange-600 transition"
-      >
-        <svg
-          className={`w-3.5 h-3.5 transition-transform ${
-            dropdownOpen ? "rotate-180" : ""
-          }`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={3}
-            d="M19 9l-7 7-7-7"
-          />
-        </svg>
-      </button>
-    </div>
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-44 bg-white shadow-lg rounded-lg border z-50">
+                    <button
+                      onClick={handleDashboardNavigation}
+                      className="block w-full text-left px-4 py-2 hover:bg-orange-50"
+                    >
+                      Dashboard
+                    </button>
 
-    {dropdownOpen && (
-      <div className="absolute right-0 mt-2 w-44 bg-white shadow-lg rounded-lg border z-50">
-        <button
-          onClick={handleDashboardNavigation}
-          className="block w-full text-left px-4 py-2 hover:bg-orange-50"
-        >
-          Dashboard
-        </button>
-
-        <button
-          onClick={handleLogout}
-          className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
-        >
-          Logout
-        </button>
-      </div>
-    )}
-  </div>
-)}
-
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-50"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* SIGN UP BUTTON */}
             {!authLoading && !auth.currentUser && (

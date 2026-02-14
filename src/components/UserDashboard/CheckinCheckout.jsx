@@ -6,6 +6,11 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
 } from "firebase/firestore";
 
 const getDistanceInKm = (lat1, lon1, lat2, lon2) => {
@@ -25,6 +30,7 @@ export default function TrainerAttendanceCheck() {
   const [instituteLoc, setInstituteLoc] = useState(null);
   const [message, setMessage] = useState("");
   const [attendance, setAttendance] = useState(null);
+  const [history, setHistory] = useState([]);
 
   const trainerId = auth.currentUser?.uid;
 
@@ -41,8 +47,8 @@ export default function TrainerAttendanceCheck() {
             lng: pos.coords.longitude,
           }),
         reject,
-        { enableHighAccuracy: true }
-      )
+        { enableHighAccuracy: true },
+      ),
     );
 
   /* ==============================
@@ -52,7 +58,7 @@ export default function TrainerAttendanceCheck() {
     const fetchInstitute = async () => {
       try {
         const trainerSnap = await getDoc(
-          doc(db, "InstituteTrainers", trainerId)
+          doc(db, "InstituteTrainers", trainerId),
         );
         if (!trainerSnap.exists()) {
           setMessage("Trainer not found!");
@@ -80,6 +86,55 @@ export default function TrainerAttendanceCheck() {
     if (trainerId) fetchInstitute();
   }, [trainerId]);
 
+  /* ==============================
+     📥 LOAD TODAY ATTENDANCE
+  ============================== */
+  useEffect(() => {
+    if (!instituteLoc || !trainerId) return;
+
+    const loadToday = async () => {
+      const ref = doc(
+        db,
+        "institutes",
+        instituteLoc.instituteId,
+        "trainerAttendance",
+        docId,
+      );
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        setAttendance({ id: snap.id, ...snap.data() });
+      }
+    };
+
+    loadToday();
+  }, [instituteLoc, trainerId]);
+
+  /* ==============================
+     📜 LOAD HISTORY
+  ============================== */
+  useEffect(() => {
+    if (!instituteLoc || !trainerId) return;
+
+    const loadHistory = async () => {
+      const q = query(
+        collection(
+          db,
+          "institutes",
+          instituteLoc.instituteId,
+          "trainerAttendance",
+        ),
+        where("trainerId", "==", trainerId),
+        orderBy("date", "desc"),
+      );
+
+      const snap = await getDocs(q);
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setHistory(list);
+    };
+
+    loadHistory();
+  }, [instituteLoc, trainerId, message]);
+
   const handleCheckIn = async () => {
     if (!instituteLoc) return;
     setLoading(true);
@@ -89,14 +144,14 @@ export default function TrainerAttendanceCheck() {
         loc.lat,
         loc.lng,
         instituteLoc.lat,
-        instituteLoc.lng
+        instituteLoc.lng,
       );
 
       if (distance > 2) {
         alert(
           `You are too far away (${distance.toFixed(
-            2
-          )} km). Go to institute to check in.`
+            2,
+          )} km). Go to institute to check in.`,
         );
         return;
       }
@@ -107,7 +162,7 @@ export default function TrainerAttendanceCheck() {
           "institutes",
           instituteLoc.instituteId,
           "trainerAttendance",
-          docId
+          docId,
         ),
         {
           trainerId,
@@ -118,7 +173,7 @@ export default function TrainerAttendanceCheck() {
           checkInTime: serverTimestamp(),
           createdAt: serverTimestamp(),
         },
-        { merge: true }
+        { merge: true },
       );
 
       setMessage("Check-in successful!");
@@ -139,7 +194,7 @@ export default function TrainerAttendanceCheck() {
         "institutes",
         instituteLoc.instituteId,
         "trainerAttendance",
-        docId
+        docId,
       );
       const snap = await getDoc(docRef);
 
@@ -153,14 +208,14 @@ export default function TrainerAttendanceCheck() {
         loc.lat,
         loc.lng,
         instituteLoc.lat,
-        instituteLoc.lng
+        instituteLoc.lng,
       );
 
       if (distance > 2) {
         alert(
           `You are too far away (${distance.toFixed(
-            2
-          )} km). Go to institute to check out.`
+            2,
+          )} km). Go to institute to check out.`,
         );
         return;
       }
@@ -185,6 +240,11 @@ export default function TrainerAttendanceCheck() {
     }
   };
 
+  const formatTime = (ts) => {
+    if (!ts) return "--";
+    return ts.toDate().toLocaleTimeString();
+  };
+
   return (
     <div className="max-w-md mx-auto bg-white text-black p-6 rounded-xl shadow-lg mt-10">
       <h2 className="text-2xl font-bold mb-4 text-center">
@@ -195,6 +255,24 @@ export default function TrainerAttendanceCheck() {
         <p className="mb-4 text-center font-medium text-orange-500">
           {message}
         </p>
+      )}
+
+      {/* ===== TODAY STATUS ===== */}
+      {attendance && (
+        <div className="bg-gray-100 p-3 rounded-lg mb-4 text-sm">
+          <p>
+            <b>Status:</b> {attendance.status}
+          </p>
+          <p>
+            <b>Check-in:</b> {formatTime(attendance.checkInTime)}
+          </p>
+          <p>
+            <b>Check-out:</b> {formatTime(attendance.checkOutTime)}
+          </p>
+          <p>
+            <b>Total Hours:</b> {attendance.totalHours || 0}
+          </p>
+        </div>
       )}
 
       <button
@@ -212,6 +290,32 @@ export default function TrainerAttendanceCheck() {
       >
         Check Out
       </button>
+
+      {/* ===== HISTORY ===== */}
+      <div className="mt-6">
+        <h3 className="text-lg font-semibold mb-2">Attendance History</h3>
+        <div className="max-h-64 overflow-y-auto space-y-2">
+          {history.map((h) => (
+            <div key={h.id} className="border p-2 rounded text-sm bg-gray-50">
+              <p>
+                <b>Date:</b> {h.date}
+              </p>
+              <p>
+                <b>Check-in:</b> {formatTime(h.checkInTime)}
+              </p>
+              <p>
+                <b>Check-out:</b> {formatTime(h.checkOutTime)}
+              </p>
+              <p>
+                <b>Hours:</b> {h.totalHours || 0}
+              </p>
+              <p>
+                <b>Status:</b> {h.status}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
